@@ -8,6 +8,11 @@ extern int line_num;
 void yyerror(const char *s);
 %}
 
+%code requires {
+#include "ast.h"
+}
+
+
 %define parse.error verbose
 
 /**
@@ -15,8 +20,13 @@ void yyerror(const char *s);
  */
 %union {
     int num;
-    char* str;
+    char * str;
+    ASTNode * node;
 }
+/***
+ * Types
+ */
+%type <node> expression statement declaration assignment print_stmt statement_list
 
 /**
  * Token definitions
@@ -44,7 +54,7 @@ void yyerror(const char *s);
 
 program:
     statement_list {
-        printf("Successfully parsed a complete PROGRAM.\n");
+        ast_root = $1;
     }
     | /* empty program */ {
         printf("Empty program.\n");
@@ -52,48 +62,60 @@ program:
     ;
 
 statement_list:
-    statement_list NEWLINE statement
-    | statement
-    | statement_list NEWLINE
+    statement {
+        $$ = $1;
+    }
+    | statement_list NEWLINE statement {
+        ASTNode * cur = $1;
+        while (cur->next) {
+            cur = cur->next;
+        }
+        cur->next = $3;
+        $$ = $1;
+    }
+    | statement_list NEWLINE {
+        $$ = $1;
+    }
     ;
 
 statement:
-    declaration
-    | assignment
-    | print_stmt
+    declaration  {$$ = $1; }
+    | assignment {$$ = $1; }
+    | print_stmt {$$ = $1; }
     ;
 
 declaration:
     VAR IDENTIFIER {
-        printf("Parsed Declaration: var %s\n", $2);
+        $$ = ast_declare($2);
         free($2);
     }
-    | VAR assignment {
-        printf("Parsed Declaration with Assignment.\n");
+    | VAR IDENTIFIER ASSIGN_OP expression {
+        $$ = ast_declare_assign($2, $4);
+        free($2);
     }
     ;
 
 assignment:
     IDENTIFIER ASSIGN_OP expression {
-        printf("Parsed Assignment: %s :=\n", $1);
+        $$ = ast_assign($1, $3);
         free($1);
     }
     ;
 
 print_stmt:
     PRINT LPAREN expression RPAREN {
-        printf("Parsed Print Statement.\n");
+        $$ = ast_print($3);
     }
     ;
 
 expression:
-    expression PLUS expression    { printf(" [Math: Add] "); }
-    | expression MINUS expression { printf(" [Math: Sub] "); }
-    | expression MUL expression   { printf(" [Math: Mul] "); }
-    | expression DIV expression   { printf(" [Math: Div] "); }
-    | LPAREN expression RPAREN    { printf(" [Math: Parentheses] "); }
-    | IDENTIFIER                  { printf(" [Var: %s] ", $1); free($1); }
-    | NUMBER                      { printf(" [Num: %d] ", $1); }
+    NUMBER                        { $$ = ast_number($1); }
+    | IDENTIFIER                  { $$ = ast_identifier($1); free($1); }
+    | expression PLUS  expression { $$ = ast_binop(NODE_ADD, $1, $3); }
+    | expression MINUS expression { $$ = ast_binop(NODE_SUB, $1, $3); }
+    | expression MUL   expression { $$ = ast_binop(NODE_MUL, $1, $3); }
+    | expression DIV   expression { $$ = ast_binop(NODE_DIV, $1, $3); }
+    | LPAREN expression RPAREN    { $$ = $2; }
     ;
 
 %%
