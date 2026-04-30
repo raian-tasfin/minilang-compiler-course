@@ -1,0 +1,28 @@
+# Build artifacts
+
+minicompiler
+*.out
+*.o
+
+# Flex & Bison generated files
+
+lex.yy.c
+parser.tab.c
+parser.tab.h
+parser.output
+
+# Debug / temp files
+
+*.log
+*.tmp
+*.swp
+*~
+
+# OS / editor junk
+
+.DS_Store
+Thumbs.db
+
+# (Optional) ignore test outputs
+
+output.tac
