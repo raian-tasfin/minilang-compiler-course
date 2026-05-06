@@ -2,11 +2,21 @@
 # The big picture #
 ###################
 PROGRAM        -> GROUP
-BLOCK          -> LBLOCK GROUP RBLOCK
-GROUP          -> GROUP STATEMENT NEWLINE
+
+BLOCK          -> LBLOCK NEWLINES GROUP NEWLINES RBLOCK
+               |  LBLOCK GROUP RBLOCK
+
+GROUP          -> GROUP NEWLINES STATEMENT
+               |  GROUP NEWLINES
+               |  STATEMENT
                |  ε
+
+NEWLINES       -> NEWLINES NEWLINE
+               |  NEWLINE
+
 STATEMENT      -> UNIT
                |  BLOCK
+
 
 ##################
 # Types of Units #
@@ -18,47 +28,75 @@ UNIT -> DECLARATION
      |  IF_GROUP
      |  WHILE_GROUP
 
+
 ##############################
 # Declaration and Assignment #
 ##############################
 INITIALIZED_DECLARATION -> TYPE_SPECIFIER IDENTIFIER ASSIGNMENT_OP EXPRESSION
 DECLARATION             -> TYPE_SPECIFIER IDENTIFIER
 ASSIGNMENT              -> IDENTIFIER ASSIGNMENT_OP EXPRESSION
+
 TYPE_SPECIFIER          -> INTEGER_SPECIFIER
                         |  BOOLEAN_SPECIFIER
+
 
 ###################
 # Print Statement #
 ###################
 PRINT_STATEMENT -> PRINT LPAREN FSTRING_LITERAL RPAREN
 
+
 ###############
 # While Group #
 ###############
 WHILE_GROUP -> WHILE EXPRESSION BLOCK
 
+
 #############
 # If Ladder #
 #############
 IF_GROUP      -> IF_BLOCK ELSEIF_LADDER OPTIONAL_ELSE_BLOCK
+
 ELSEIF_LADDER -> ε
-              |  ELSEIF_BLOCK ELSEIF_LADDER
+              |  ELSEIF_LADDER NEWLINES ELSEIF_BLOCK
 
 OPTIONAL_ELSE_BLOCK -> ε
-                    |  ELSE_BLOCK
+                    |  NEWLINES ELSE_BLOCK
 
 IF_BLOCK     -> IF EXPRESSION BLOCK
 ELSEIF_BLOCK -> ELSEIF EXPRESSION BLOCK
 ELSE_BLOCK   -> ELSE BLOCK
 
+
 ###############
 # Expressions #
 ###############
-EXPRESSION      -> EXPRESSION + EXPRESSION
-                 | EXPRESSION - EXPRESSION
-                 | EXPRESSION * EXPRESSION
-                 | EXPRESSION / EXPRESSION
+EXPRESSION      -> EXPRESSION ADD EXPRESSION
+                 | EXPRESSION SUB EXPRESSION
+                 | EXPRESSION MUL EXPRESSION
+                 | EXPRESSION DIV EXPRESSION
+                 | EXPRESSION LE  EXPRESSION
+                 | EXPRESSION EQ  EXPRESSION
+                 | EXPRESSION GE  EXPRESSION
+                 | EXPRESSION LEQ EXPRESSION
+                 | EXPRESSION GEQ EXPRESSION
+                 | EXPRESSION NEQ EXPRESSION
+                 | NOT EXPRESSION
+                 | SUB EXPRESSION
                  | LPAREN EXPRESSION RPAREN
                  | IDENTIFIER
                  | NUMBER
                  | BOOLEAN
+                 | NIL
+
+
+###################
+# FSTRING_LITERAL #
+###################
+FSTRING_LITERAL -> STRING_DELIM FSTRING_CONTENT STRING_DELIM
+FSTRING_CONTENT -> FSTRING_CONTENT FSTRING_PART
+                 | ε
+
+FSTRING_PART -> TEXT
+              | ESCAPE
+              | LBRACE EXPRESSION RBRACE

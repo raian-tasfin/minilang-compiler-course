@@ -1,128 +1,165 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
-#include "parser.tab.h"
-
-extern int yylex();
-extern int line_num;
+int yylex(void);
 void yyerror(const char *s);
 %}
 
-%code requires {
-#include "ast.h"
-}
-
-
 %define parse.error verbose
 
-/**
- * Token storage
- */
-%union {
-    int num;
-    char * str;
-    ASTNode * node;
-}
-/***
- * Types
- */
-%type <node> expression statement declaration assignment print_stmt statement_list
+%token LBLOCK RBLOCK
+%token IDENTIFIER ASSIGNMENT_OP
+%token INTEGER_SPECIFIER BOOLEAN_SPECIFIER
+%token PRINT LPAREN RPAREN
+%token WHILE
+%token IF ELSEIF ELSE
+%token ADD SUB MUL DIV
+%token LE EQ GE LEQ GEQ NEQ
+%token NOT
+%token NUMBER BOOLEAN NIL
+%token NEWLINE
+%token STRING_DELIM TEXT ESCAPE LBRACE RBRACE
 
-/**
- * Token definitions
- */
-%token VAR PRINT ASSIGN_OP PLUS MINUS MUL DIV LPAREN RPAREN NEWLINE
-%token <str> IDENTIFIER
-%token <num> NUMBER
-
-/**
- * Precedence
- */
-%left PLUS MINUS
+/* resolve ambiguity: all binary ops left-associative, precedence low->high */
+%left EQ NEQ
+%left LE GE LEQ GEQ
+%left ADD SUB
 %left MUL DIV
-
-/**
- * Starting rule
- */
-%start program
+%right NOT UMINUS
 
 %%
 
-/**
- * Grammar
- */
-
-program:
-    statement_list {
-        ast_root = $1;
-    }
-    | /* empty program */ {
-        printf("Empty program.\n");
-    }
+program
+    : group
     ;
 
-statement_list:
-    statement {
-        $$ = $1;
-    }
-    | statement_list NEWLINE statement {
-        ASTNode * cur = $1;
-        while (cur->next) {
-            cur = cur->next;
-        }
-        cur->next = $3;
-        $$ = $1;
-    }
-    | statement_list NEWLINE {
-        $$ = $1;
-    }
+group
+    : group newlines statement
+    | group newlines
+    | statement
+    | /* empty */
     ;
 
-statement:
-    declaration  {$$ = $1; }
-    | assignment {$$ = $1; }
-    | print_stmt {$$ = $1; }
+newlines
+    : newlines NEWLINE
+    | NEWLINE
     ;
 
-declaration:
-    VAR IDENTIFIER {
-        $$ = ast_declare($2);
-        free($2);
-    }
-    | VAR IDENTIFIER ASSIGN_OP expression {
-        $$ = ast_declare_assign($2, $4);
-        free($2);
-    }
+block
+    : LBLOCK newlines group newlines RBLOCK
+    | LBLOCK group RBLOCK
     ;
 
-assignment:
-    IDENTIFIER ASSIGN_OP expression {
-        $$ = ast_assign($1, $3);
-        free($1);
-    }
+statement
+    : unit
+    | block
     ;
 
-print_stmt:
-    PRINT LPAREN expression RPAREN {
-        $$ = ast_print($3);
-    }
+unit
+    : declaration
+    | assignment
+    | initialized_declaration
+    | print_statement
+    | if_group
+    | while_group
     ;
 
-expression:
-    NUMBER                        { $$ = ast_number($1); }
-    | IDENTIFIER                  { $$ = ast_identifier($1); free($1); }
-    | expression PLUS  expression { $$ = ast_binop(NODE_ADD, $1, $3); }
-    | expression MINUS expression { $$ = ast_binop(NODE_SUB, $1, $3); }
-    | expression MUL   expression { $$ = ast_binop(NODE_MUL, $1, $3); }
-    | expression DIV   expression { $$ = ast_binop(NODE_DIV, $1, $3); }
-    | LPAREN expression RPAREN    { $$ = $2; }
+/* ----- Declaration & Assignment ----- */
+
+type_specifier
+    : INTEGER_SPECIFIER
+    | BOOLEAN_SPECIFIER
+    ;
+
+initialized_declaration
+    : type_specifier IDENTIFIER ASSIGNMENT_OP expression
+    ;
+
+declaration
+    : type_specifier IDENTIFIER
+    ;
+
+assignment
+    : IDENTIFIER ASSIGNMENT_OP expression
+    ;
+
+/* ----- Print ----- */
+
+print_statement
+    : PRINT LPAREN fstring_literal RPAREN
+    ;
+
+/* ----- While ----- */
+
+while_group
+    : WHILE expression block
+    ;
+
+/* ----- If ladder ----- */
+
+if_group
+    : if_block elseif_ladder optional_else_block
+    ;
+
+elseif_ladder
+    : elseif_ladder newlines elseif_block
+    | /* empty */
+    ;
+
+optional_else_block
+    : newlines else_block
+    | /* empty */
+    ;
+
+if_block
+    : IF expression block
+    ;
+
+elseif_block
+    : ELSEIF expression block
+    ;
+
+else_block
+    : ELSE block
+    ;
+
+/* ----- Expressions ----- */
+
+expression
+    : expression ADD expression
+    | expression SUB expression
+    | expression MUL expression
+    | expression DIV expression
+    | expression LE  expression
+    | expression EQ  expression
+    | expression GE  expression
+    | expression LEQ expression
+    | expression GEQ expression
+    | expression NEQ expression
+    | NOT expression
+    | SUB expression  %prec UMINUS
+    | LPAREN expression RPAREN
+    | IDENTIFIER
+    | NUMBER
+    | BOOLEAN
+    | NIL
+    ;
+
+/* ----- Fstring ----- */
+
+fstring_literal
+    : STRING_DELIM fstring_content STRING_DELIM
+    ;
+
+fstring_content
+    : fstring_content fstring_part
+    | /* empty */
+    ;
+
+fstring_part
+    : TEXT
+    | ESCAPE
+    | LBRACE expression RBRACE
     ;
 
 %%
-
-/**
- * Error
- */
-void yyerror(const char *s) {
-    fprintf(stderr, "Syntax Error on line %d: %s\n", line_num, s);
-}
