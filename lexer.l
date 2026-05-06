@@ -31,6 +31,15 @@ int line_num = 1;
 "("                     { return LPAREN; }
 ")"                     { return RPAREN; }
 
+":>"([^:]|\n|":"[^<])*":<"   {
+    int i;
+    for (i = 0; yytext[i]; i++)
+        if (yytext[i] == '\n') line_num++;
+    printf("Skipping block comment ending at line %03d\n", line_num);
+}
+
+":>"[^\n]*              { printf("Skipping comment: Line: %03d: %s\n", line_num, yytext); }
+
 \n                      { line_num++; return NEWLINE; }
 [ \t\r]+                { /* space, tabls */ }
 

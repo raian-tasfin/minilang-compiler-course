@@ -1,0 +1,64 @@
+###################
+# The big picture #
+###################
+PROGRAM        -> GROUP
+BLOCK          -> LBLOCK GROUP RBLOCK
+GROUP          -> GROUP STATEMENT NEWLINE
+               |  ε
+STATEMENT      -> UNIT
+               |  BLOCK
+
+##################
+# Types of Units #
+##################
+UNIT -> DECLARATION
+     |  ASSIGNMENT
+     |  INITIALIZED_DECLARATION
+     |  PRINT_STATEMENT
+     |  IF_GROUP
+     |  WHILE_GROUP
+
+##############################
+# Declaration and Assignment #
+##############################
+INITIALIZED_DECLARATION -> TYPE_SPECIFIER IDENTIFIER ASSIGNMENT_OP EXPRESSION
+DECLARATION             -> TYPE_SPECIFIER IDENTIFIER
+ASSIGNMENT              -> IDENTIFIER ASSIGNMENT_OP EXPRESSION
+TYPE_SPECIFIER          -> INTEGER_SPECIFIER
+                        |  BOOLEAN_SPECIFIER
+
+###################
+# Print Statement #
+###################
+PRINT_STATEMENT -> PRINT LPAREN FSTRING_LITERAL RPAREN
+
+###############
+# While Group #
+###############
+WHILE_GROUP -> WHILE EXPRESSION BLOCK
+
+#############
+# If Ladder #
+#############
+IF_GROUP      -> IF_BLOCK ELSEIF_LADDER OPTIONAL_ELSE_BLOCK
+ELSEIF_LADDER -> ε
+              |  ELSEIF_BLOCK ELSEIF_LADDER
+
+OPTIONAL_ELSE_BLOCK -> ε
+                    |  ELSE_BLOCK
+
+IF_BLOCK     -> IF EXPRESSION BLOCK
+ELSEIF_BLOCK -> ELSEIF EXPRESSION BLOCK
+ELSE_BLOCK   -> ELSE BLOCK
+
+###############
+# Expressions #
+###############
+EXPRESSION      -> EXPRESSION + EXPRESSION
+                 | EXPRESSION - EXPRESSION
+                 | EXPRESSION * EXPRESSION
+                 | EXPRESSION / EXPRESSION
+                 | LPAREN EXPRESSION RPAREN
+                 | IDENTIFIER
+                 | NUMBER
+                 | BOOLEAN
