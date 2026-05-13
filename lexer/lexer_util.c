@@ -50,7 +50,7 @@ int lxr_process_proc(int token_type, YYSTYPE *yylval, YYLTYPE *yylloc, void *yys
     case RPRN: lxr_print_token(RPRN, yylval); return RPRN;
 
     case NEWLINE:
-        /* lxr_print_token(NEWLINE, yylval); */
+        lxr_print_token(NEWLINE, yylval);
         return token_type;
 
         /* Error */
