@@ -1,8 +1,19 @@
+#include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include "../cli/cli.h"
 #include "../parser/parser.tab.h"
 
 #ifndef AST_H
 #define AST_H 1
+
+struct ast_ctx {
+    FILE * dot;
+    FILE * text;
+    bool err;
+};
+
+struct ast_ctx ast_ctx_init(struct cli_ast_opts opts);
 
 struct ast_node {
     int token_type;

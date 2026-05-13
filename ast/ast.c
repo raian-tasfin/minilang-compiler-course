@@ -1,12 +1,46 @@
 #include "ast.h"
 #include "../lexer/lexer_util.h"
 #include <stdint.h>
+#include <stdio.h>
+
+struct ast_ctx
+ast_ctx_init(struct cli_ast_opts opts)
+{
+    struct ast_ctx ctx = {0};
+    if (opts.dot) {
+        ctx.dot =
+            opts.dot_path
+            ? fopen(opts.dot_path, "w")
+            : stdout;
+        if (!ctx.dot) {
+            fprintf(stderr, "Could not open '%s'\n", opts.dot_path);
+            ctx.err = true;
+            return ctx;
+        }
+    }
+    if (opts.text) {
+        ctx.text =
+            opts.text_path
+            ? fopen(opts.text_path, "w")
+            : stdout;
+        if (!ctx.text) {
+            fprintf(stderr, "Could not open '%s'\n", opts.text_path);
+            ctx.err = true;
+            return ctx;
+        }
+    }
+    return ctx;
+}
 
 
 struct ast_node *
 ast_ctr_integer(int val)
 {
     struct ast_node * node = malloc(sizeof(struct ast_node));
+    if (!node) {
+        fprintf(stderr, "Failed allocating node.\n");
+        return NULL;
+    }
     node[0] = (struct ast_node) {
         .token_type = INTEGER,
         .value.INTEGER = val,
@@ -21,6 +55,10 @@ struct ast_node *
 ast_ctr_subexpr(struct ast_node * subexpr)
 {
     struct ast_node * node = malloc(sizeof(struct ast_node));
+    if (!node) {
+        fprintf(stderr, "Failed allocating node.\n");
+        return NULL;
+    }
     node[0] = (struct ast_node) {
         .token_type = AST_SUBEXPR,
         .child = subexpr
@@ -35,6 +73,10 @@ ast_ctr_binop(int op_type,
               struct ast_node * right)
 {
     struct ast_node * node = malloc(sizeof(struct ast_node));
+    if (!node) {
+        fprintf(stderr, "Failed allocating node.\n");
+        return NULL;
+    }
     node[0] = (struct ast_node) {
         .token_type = op_type,
         .left = left,

@@ -36,7 +36,7 @@ lxr_ctx_init(struct cli_opts * cliopts)
     if (!ctx.instream) {
         fprintf(stderr,
                 "Could not open file '%s'\n",
-                cliopts->lxr.path);
+                cliopts->input_path);
         ctx.err = true;
         return ctx;
     }
