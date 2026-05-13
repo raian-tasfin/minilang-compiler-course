@@ -1,11 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "cli/cli.h"
 #include "parser/parser.tab.h"
 #include "lexer/lex.yy.h"
 #include "ast/ast.h"
 
-int main()
+int main(int argc, char * const * argv)
 {
+    /*********************
+     * CLI Options Setup *
+     *********************/
+    struct cli_opts cliopts = cli_get_opts(argc, argv);
+    if (cliopts.err) return EXIT_FAILURE;
+    if (cliopts.lxr.rprt) printf("cliopts.lxr.rprt: true\n");
+    if (cliopts.lxr.path) printf("cliopts.lxr.path: %s\n",
+                                 cliopts.lxr.path);
+
     /****************
      * Init Scanner *
      ****************/

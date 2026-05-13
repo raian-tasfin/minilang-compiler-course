@@ -5,6 +5,15 @@ RM = -rm -f
 
 REPORT_DIR = report
 
+
+#######
+# CLI #
+#######
+CLI_DIR = cli
+CLI_H   = $(CLI_DIR)/cli.h
+CLI_C   = $(CLI_DIR)/cli.c
+
+
 ##########
 # Lexing #
 ##########
@@ -41,7 +50,15 @@ AST_C   = $(AST_DIR)/ast.c
 # C Code #
 ##########
 MAIN_C = main.c
-SRCS_C = $(MAIN_C) $(LEXER_C) $(PARSER_C) $(LEXER_UTIL_C) $(AST_C)
+
+SRCS_C =
+SRCS_C += $(MAIN_C)
+SRCS_C += $(LEXER_C)
+SRCS_C += $(PARSER_C)
+SRCS_C += $(LEXER_UTIL_C)
+SRCS_C += $(AST_C)
+SRCS_C += $(CLI_C)
+
 OBJS   = $(SRCS_C:%.c=%.o)
 
 EXEC = minilang
@@ -65,8 +82,9 @@ $(EXEC): $(OBJS)
 ##########################
 # No-Action Dependencies #
 ##########################
-$(MAIN_C): $(LEXER_H) $(PARSER_H) $(LEXER_UTIL_H) $(AST_H)
+$(MAIN_C): $(LEXER_H) $(PARSER_H) $(LEXER_UTIL_H) $(AST_H) $(CLI_H)
 $(LEXER_UTIL_H): $(PARSER_H) $(LEXER_H)
+$(CLI_C): $(CLI_H)
 
 
 clean:
