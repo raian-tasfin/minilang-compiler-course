@@ -34,20 +34,35 @@ void yyerror(YYLTYPE *loc, void *scanner, const char *s);
 %token LPRN
 %token RPRN
 
+
+/*******************************
+ * Precedence & Associativity  *
+ *******************************/
+%left ADD SUB
+%left MUL DIV MOD
+
+
 %%
 
-start:
-| start INTEGER
-| start ADD
-| start SUB
-| start MUL
-| start DIV
-| start MOD
-| start LPRN
-| start RPRN
-| start NEWLINE
+program:
+%empty
+| program line
 ;
 
+line:
+NEWLINE
+| expr NEWLINE
+;
+
+expr:
+    INTEGER
+  | expr ADD expr
+  | expr SUB expr
+  | expr MUL expr
+  | expr DIV expr
+  | expr MOD expr
+  | LPRN expr RPRN
+;
 
 %%
 
