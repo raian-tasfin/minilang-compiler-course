@@ -1,5 +1,6 @@
 %top{
 #include "../parser/parser.tab.h"
+struct lxr_ctx;
 }
 
 %{
@@ -9,6 +10,7 @@
 
 %option noyywrap
 %option reentrant
+%option extra-type="struct lxr_ctx *"
 %option bison-bridge
 %option bison-locations
 

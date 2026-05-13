@@ -8,19 +8,26 @@
 
 int main(int argc, char * const * argv)
 {
+    int exit_status = EXIT_SUCCESS;
+
     /*********************
      * CLI Options Setup *
      *********************/
     struct cli_opts cliopts = cli_get_opts(argc, argv);
-    if (cliopts.err) return EXIT_FAILURE;
+    if (cliopts.err) {
+        exit_status = EXIT_FAILURE;
+        goto destruct;
+    }
 
 
     /************************
      * Lexer Report Context *
      ************************/
-    struct lxr_rprt_ctx lxrprt_ctx =
-        lxr_rprt_ctx_init(cliopts.lxr.rprt, cliopts.lxr.path);
-    if (lxrprt_ctx.err) return EXIT_FAILURE;
+    struct lxr_ctx lxr_ctx = lxr_ctx_init(&cliopts);
+    if (lxr_ctx.err) {
+        exit_status = EXIT_FAILURE;
+        goto destruct;
+    }
 
 
     /****************
@@ -29,30 +36,37 @@ int main(int argc, char * const * argv)
     yyscan_t scanner;
     if (yylex_init(&scanner) != 0) {
         fprintf(stderr, "Failed to init lexer\n");
-        return EXIT_FAILURE;
+        exit_status = EXIT_FAILURE;
+        goto destruct;
     }
-    yyset_in(stdin, scanner);
+
+
+    /***************************
+     * Attach Context to Lexer *
+     ***************************/
+    yyset_extra(&lxr_ctx, scanner);
+    yyset_in(lxr_ctx.instream, scanner);
 
 
     /************
      * AST Root *
      ************/
-    struct ast_node * ast_root;
+    struct ast_node * ast_root = NULL;
 
 
     /***************
      * Main Matter *
      ***************/
     yyparse(scanner, &ast_root);
-    fprintf(stdout,
-            "-------------------------\n"
-            "-       AST             -\n"
-            "-------------------------\n");
-    ast_print_texttree(ast_root, stdout);
+    /* fprintf(stdout, */
+    /*         "-------------------------\n" */
+    /*         "-       AST             -\n" */
+    /*         "-------------------------\n"); */
+    /* ast_print_texttree(ast_root, stdout); */
 
-    FILE * fdot = fopen("report/ast.dot", "w");
-    ast_print_dot(ast_root, fdot);
-    fclose(fdot);
+    /* FILE * fdot = fopen("report/ast.dot", "w"); */
+    /* ast_print_dot(ast_root, fdot); */
+    /* fclose(fdot); */
 
 
     /************
@@ -63,9 +77,9 @@ int main(int argc, char * const * argv)
      * lexer report context
      * cli options
      */
+ destruct:
     ast_delete(&ast_root);
     yylex_destroy(scanner);
-    fclose(lxrprt_ctx.strm);
-
-    return EXIT_SUCCESS;
+    if (lxr_ctx.rprt && lxr_ctx.rprt != stdout) fclose(lxr_ctx.rprt);
+    return exit_status;
 }

@@ -6,24 +6,54 @@
 #include "lexer_util.h"
 
 
+/*********************
+ * Private Utilities *
+ *********************/
+void
+lxr_print(struct lxr_ctx * ctx, const char *fmt, ...)
+{
+    if (!ctx || !ctx->rprt) return;
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(ctx->rprt, fmt, args);
+    va_end(args);
+}
+
+
 /**************/
 /* Public API */
 /**************/
-struct lxr_rprt_ctx
-lxr_rprt_ctx_init(bool rprt, char * path)
+struct lxr_ctx
+lxr_ctx_init(struct cli_opts * cliopts)
 {
-    struct lxr_rprt_ctx ctx = { .rprt = rprt, .path = path };
-    if (!rprt) return ctx;
-    if (!path) {
-        ctx.strm = stdout;
-        return ctx;
-    }
-    ctx.strm = fopen(ctx.path, "w");
-    if (!ctx.strm) {
+    struct lxr_ctx ctx = { 0 };
+    if (!cliopts) return ctx;
+
+    /****************
+     * Input Stream *
+     ****************/
+    ctx.instream = fopen(cliopts->input_path, "r");
+    if (!ctx.instream) {
+        fprintf(stderr,
+                "Could not open file '%s'\n",
+                cliopts->lxr.path);
         ctx.err = true;
-        fopen("Failed to open file '%s'\n.", ctx.path);
         return ctx;
     }
+
+    /**************
+     * Report Ctx *
+     **************/
+    if (!cliopts->lxr.rprt) return ctx;
+    if (!cliopts->lxr.path) ctx.rprt = stdout;
+    else ctx.rprt = fopen(cliopts->lxr.path, "w");
+    if (!ctx.rprt) {
+        fprintf(stderr,
+                "Could not open file '%s'\n",
+                cliopts->lxr.path);
+        ctx.err = true;
+    }
+
     return ctx;
 }
 
@@ -49,6 +79,18 @@ lxr_toktostr(int token_type)
     }
 }
 
+void
+lxr_print_token(int token_type,
+                YYSTYPE * yylval,
+                struct lxr_ctx * ctx)
+{
+    lxr_print(ctx, "%s", lxr_toktostr(token_type));
+    if (token_type == INTEGER && yylval) {
+        lxr_print(ctx, ": %d", yylval->INTEGER);
+    }
+    lxr_print(ctx, "\n");
+}
+
 void lxr_updt_loc(YYLTYPE *yylloc, void *yyscanner)
 {
     int yyleng   = yyget_leng(yyscanner);
@@ -68,38 +110,43 @@ void lxr_updt_loc(YYLTYPE *yylloc, void *yyscanner)
 }
 
 
-int lxr_process_proc(int token_type, YYSTYPE *yylval, YYLTYPE *yylloc, void *yyscanner)
+int
+lxr_process_proc(int token_type,
+                 YYSTYPE * yylval,
+                 YYLTYPE * yylloc,
+                 void * yyscanner,
+                 struct lxr_ctx * ctx)
 {
     char *yytext = yyget_text(yyscanner);
     lxr_updt_loc(yylloc, yyscanner);
     switch (token_type) {
         /* Ignore cases */
-    case LEX_BLNK: // lxr_print_token(LEX_BLNK, yylval);
-    case LEX_CONT: // lxr_print_token(LEX_CONT, yylval);
+    case LEX_BLNK: // lxr_print_token(LEX_BLNK, yylval, ctx);
+    case LEX_CONT: // lxr_print_token(LEX_CONT, yylval, ctx);
         return LEX_IGNR;
 
         /* Cases with Semantic Value */
     case INTEGER:
         if (yylval) yylval->INTEGER = atoi(yytext);
-        lxr_print_token(INTEGER, yylval);
+        lxr_print_token(INTEGER, yylval, ctx);
         return INTEGER;
 
         /* Punctuators */
-    case ADD:  lxr_print_token(ADD, yylval); return ADD;
-    case SUB:  lxr_print_token(SUB, yylval); return SUB;
-    case MUL:  lxr_print_token(MUL, yylval); return MUL;
-    case DIV:  lxr_print_token(DIV, yylval); return DIV;
-    case MOD:  lxr_print_token(MOD, yylval); return MOD;
-    case LPRN: lxr_print_token(LPRN, yylval); return LPRN;
-    case RPRN: lxr_print_token(RPRN, yylval); return RPRN;
+    case ADD:  lxr_print_token(ADD, yylval, ctx); return ADD;
+    case SUB:  lxr_print_token(SUB, yylval, ctx); return SUB;
+    case MUL:  lxr_print_token(MUL, yylval, ctx); return MUL;
+    case DIV:  lxr_print_token(DIV, yylval, ctx); return DIV;
+    case MOD:  lxr_print_token(MOD, yylval, ctx); return MOD;
+    case LPRN: lxr_print_token(LPRN, yylval, ctx); return LPRN;
+    case RPRN: lxr_print_token(RPRN, yylval, ctx); return RPRN;
 
     case NEWLINE:
-        lxr_print_token(NEWLINE, yylval);
+        lxr_print_token(NEWLINE, yylval, ctx);
         return token_type;
 
         /* Error */
     case LEX_ERR:
-        /* lxr_print_token(LEX_ERR, yylval);; */
+        /* lxr_print_token(LEX_ERR, yylval, ctx); */
         fprintf(stderr,
                 "[lexing error]: Unexpected %s at %d:%d-%d:%d\n",
                 yytext,
