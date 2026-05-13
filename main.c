@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "parser/parser.tab.h"
 #include "lexer/lex.yy.h"
-
 
 int main()
 {
@@ -20,8 +20,7 @@ int main()
     /***************
      * Main Matter *
      ***************/
-    while (yylex(scanner)) {
-    }
+    yyparse(scanner);
 
 
 

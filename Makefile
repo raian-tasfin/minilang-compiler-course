@@ -16,10 +16,21 @@ LEXER_H   = $(LEXER_DIR)/lex.yy.h
 
 
 ##########
+# Parser #
+##########
+PARSER = bison
+
+PARSER_DIR = parser
+PARSER_SRC = $(PARSER_DIR)/parser.y
+PARSER_H   = $(PARSER_DIR)/parser.tab.h
+PARSER_C   = $(PARSER_DIR)/parser.tab.c
+
+
+##########
 # C Code #
 ##########
 MAIN_C = main.c
-SRCS_C = $(MAIN_C) $(LEXER_C)
+SRCS_C = $(MAIN_C) $(LEXER_C) $(PARSER_C)
 OBJS   = $(SRCS_C:%.c=%.o)
 
 EXEC = minilang
@@ -33,6 +44,9 @@ all: $(EXEC)
 $(LEXER_C) $(LEXER_H): $(LEXER_SRC)
 	$(LEXER) --outfile=$(LEXER_C) --header-file=$(LEXER_H) $<
 
+$(PARSER_C) $(PARSER_H): $(PARSER_SRC)
+	$(PARSER) -d -o $(PARSER_C) $<
+
 $(EXEC): $(OBJS)
 	$(CC) -o $@ $^
 
@@ -40,10 +54,14 @@ $(EXEC): $(OBJS)
 ##########################
 # No-Action Dependencies #
 ##########################
-$(MAIN_C): $(LEXER_H)
+$(MAIN_C): $(LEXER_H) $(PARSER_H)
 
 clean:
 	$(RM) $(LEXER_C)
 	$(RM) $(LEXER_H)
+
+	$(RM) $(PARSER_C)
+	$(RM) $(PARSER_H)
+
 	$(RM) $(OBJS)
 	$(RM) $(EXEC)
