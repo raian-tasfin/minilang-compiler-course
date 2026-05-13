@@ -21,6 +21,7 @@ void yyerror(YYLTYPE *loc, void *scanner, const char *s);
 %token NEWLINE
 %token LEX_ERR
 
+
 /**********
  * Tokens *
  **********/
@@ -33,17 +34,40 @@ void yyerror(YYLTYPE *loc, void *scanner, const char *s);
 %token LPRN
 %token RPRN
 
-%token ANY
+%%
+
+start:
+| start INTEGER
+| start ADD
+| start SUB
+| start MUL
+| start DIV
+| start MOD
+| start LPRN
+| start RPRN
+| start NEWLINE
+;
+
 
 %%
 
-input:
-    | input ANY   { /* ignore everything */ }
-    ;
+/**
+ * DO NOT DELETE forward declaration.
+ * otherwise we would have to include lex.yy.h making circular
+ * dependency
+ */
+char *yyget_text(void *yyscanner);
 
-%%
 
 void yyerror(YYLTYPE *loc, void *scanner, const char *s)
 {
-    fprintf(stderr, "parse error: %s\n", s);
+    char *bad_token = yyget_text(scanner);
+    fprintf(stderr, "Parse Error at line %d, col %d-%d: %s\n",
+            loc->first_line,
+            loc->first_column,
+            loc->last_column,
+            s);
+    if (bad_token && bad_token[0] != '\0') {
+        fprintf(stderr, " -> Unexpected input: '%s'\n", bad_token);
+    }
 }

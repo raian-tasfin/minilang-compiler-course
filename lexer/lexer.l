@@ -4,6 +4,7 @@
 
 %{
 #include <stdio.h>
+#include "lexer_util.h"
 %}
 
 %option noyywrap
@@ -16,22 +17,22 @@ cont        \\[[:blank:]]*\n
 
 %%
 
-[[:blank:]]+             { printf("LEX_BLNK\n"); }
-{cont}                   { printf("LEX_CONT\n"); }
+[[:blank:]]+             { lxr_process(LEX_BLNK, yylval, yylloc, yyscanner); }
+{cont}                   { lxr_process(LEX_CONT, yylval, yylloc, yyscanner); }
 
-[[:digit:]]+             { printf("INTEGER\n"); return ANY; }
+[[:digit:]]+             { lxr_process(INTEGER, yylval, yylloc, yyscanner); }
 
-"+"{expr_tail}           { printf("ADD\n"); return ANY; }
-"-"{expr_tail}           { printf("SUB\n"); return ANY; }
-"*"{expr_tail}           { printf("MUL\n"); return ANY; }
-"/"{expr_tail}           { printf("DIV\n"); return ANY; }
-"%"{expr_tail}           { printf("MOD\n"); return ANY; }
+"+"{expr_tail}           { lxr_process(ADD, yylval, yylloc, yyscanner); }
+"-"{expr_tail}           { lxr_process(SUB, yylval, yylloc, yyscanner); }
+"*"{expr_tail}           { lxr_process(MUL, yylval, yylloc, yyscanner); }
+"/"{expr_tail}           { lxr_process(DIV, yylval, yylloc, yyscanner); }
+"%"{expr_tail}           { lxr_process(MOD, yylval, yylloc, yyscanner); }
 
-"("{expr_tail}           { printf("LPRN\n"); return ANY; }
-{expr_tail}")"           { printf("RPRN\n"); return ANY; }
+"("{expr_tail}           { lxr_process(LPRN, yylval, yylloc, yyscanner); }
+{expr_tail}")"           { lxr_process(RPRN, yylval, yylloc, yyscanner); }
 
-\n                       { printf("NEWLINE\n"); }
+\n                       { lxr_process(NEWLINE, yylval, yylloc, yyscanner); }
 
-.                        { printf("LEX_ERR\n"); return ANY; }
+.                        { lxr_process(LEX_ERR, yylval, yylloc, yyscanner); }
 
 %%
