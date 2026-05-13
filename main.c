@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "parser/parser.tab.h"
 #include "lexer/lex.yy.h"
+#include "ast/ast.h"
 
 int main()
 {
@@ -16,12 +17,25 @@ int main()
     yyset_in(stdin, scanner);
 
 
+    /************
+     * AST Root *
+     ************/
+    struct ast_node * ast_root;
+
 
     /***************
      * Main Matter *
      ***************/
-    yyparse(scanner);
+    yyparse(scanner, &ast_root);
+    fprintf(stdout,
+            "-------------------------\n"
+            "-       AST             -\n"
+            "-------------------------\n");
+    ast_print_texttree(ast_root, stdout);
 
+    FILE * fdot = fopen("report/ast.dot", "w");
+    ast_print_dot(ast_root, fdot);
+    fclose(fdot);
 
 
     /********************

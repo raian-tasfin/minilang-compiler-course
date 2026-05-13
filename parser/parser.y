@@ -1,16 +1,26 @@
 %code requires {
 #include <stdio.h>
+#include "../ast/ast.h"
 }
 
 %code provides {
-int yylex(YYSTYPE *yylval, YYLTYPE *yylloc, void *scanner);
-void yyerror(YYLTYPE *loc, void *scanner, const char *s);
+int yylex(YYSTYPE * yylval, YYLTYPE * yylloc, void * scanner);
+
+void
+yyerror(YYLTYPE * loc,
+        void * scanner,
+        struct ast_node ** ast_root,
+        const char * s);
 }
 
 %define api.pure full
+%define api.value.type union
+
 %locations
-%lex-param { void *scanner }
-%parse-param { void *scanner }
+%lex-param { void * scanner }
+
+%parse-param { void * scanner }
+%parse-param { struct ast_node ** ast_root }
 
 /************************
  * Lexer-Control Tokens *
@@ -22,10 +32,16 @@ void yyerror(YYLTYPE *loc, void *scanner, const char *s);
 %token LEX_ERR
 
 
+/***************************
+ * AST-Control Token Types *
+ ***************************/
+%token AST_SUBEXPR
+
+
 /**********
  * Tokens *
  **********/
-%token INTEGER
+%token <int> INTEGER
 %token ADD
 %token SUB
 %token MUL
@@ -42,26 +58,32 @@ void yyerror(YYLTYPE *loc, void *scanner, const char *s);
 %left MUL DIV MOD
 
 
+/*******************************
+ * Nonterminal Semantic Types  *
+ *******************************/
+%type <struct ast_node *> expr line program
+
 %%
 
 program:
-%empty
-| program line
+%empty           { $$ = NULL; }
+| program line   { $$ = $2;   }
 ;
 
 line:
-NEWLINE
-| expr NEWLINE
+NEWLINE          { $$ = NULL; }
+| expr NEWLINE   { $$ = $1; *ast_root = $1; }
+| expr           { $$ = $1;   }
 ;
 
 expr:
-    INTEGER
-  | expr ADD expr
-  | expr SUB expr
-  | expr MUL expr
-  | expr DIV expr
-  | expr MOD expr
-  | LPRN expr RPRN
+INTEGER           { $$ = ast_ctr_integer($1); }
+| expr ADD expr   { $$ = ast_ctr_binop(ADD, $1, $3);  }
+| expr SUB expr   { $$ = ast_ctr_binop(SUB, $1, $3);  }
+| expr MUL expr   { $$ = ast_ctr_binop(MUL, $1, $3);  }
+| expr DIV expr   { $$ = ast_ctr_binop(DIV, $1, $3);  }
+| expr MOD expr   { $$ = ast_ctr_binop(MOD, $1, $3);  }
+| LPRN expr RPRN  { $$ = ast_ctr_subexpr($2); }
 ;
 
 %%
@@ -74,9 +96,13 @@ expr:
 char *yyget_text(void *yyscanner);
 
 
-void yyerror(YYLTYPE *loc, void *scanner, const char *s)
+void
+yyerror(YYLTYPE * loc,
+        void * scanner,
+        struct ast_node ** ast_root,
+        const char * s)
 {
-    char *bad_token = yyget_text(scanner);
+    char * bad_token = yyget_text(scanner);
     fprintf(stderr, "Parse Error at line %d, col %d-%d: %s\n",
             loc->first_line,
             loc->first_column,

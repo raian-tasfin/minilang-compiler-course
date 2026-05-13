@@ -1,10 +1,34 @@
+/* lex.yy.h must be included before lexer_util.h so the concrete
+ * yyscan_t typedef (and YYSTYPE/YYLTYPE via parser.tab.h) are visible
+ * when lexer_util.h is processed. */
+#include "lex.yy.h"
 #include "lexer_util.h"
-#include "../lexer/lex.yy.h"
 
 
 /**************/
 /* Public API */
 /**************/
+char *
+lxr_toktostr(int token_type)
+{
+    switch (token_type) {
+    case ADD:         return "ADD";
+    case AST_SUBEXPR: return "AST_SUBEXPR";
+    case DIV:         return "DIV";
+    case INTEGER:     return "INTEGER";
+    case LEX_BLNK:    return "LEX_BLNK";
+    case LEX_CONT:    return "LEX_CONT";
+    case LEX_ERR:     return "LEX_ERR";
+    case LPRN:        return "LPRN";
+    case MOD:         return "MOD";
+    case MUL:         return "MUL";
+    case NEWLINE:     return "NEWLINE";
+    case RPRN:        return "RPRN";
+    case SUB:         return "SUB";
+    default:          return "UNIDENTIFIED";
+    }
+}
+
 void lxr_updt_loc(YYLTYPE *yylloc, void *yyscanner)
 {
     int yyleng   = yyget_leng(yyscanner);
@@ -36,7 +60,7 @@ int lxr_process_proc(int token_type, YYSTYPE *yylval, YYLTYPE *yylloc, void *yys
 
         /* Cases with Semantic Value */
     case INTEGER:
-        if (yylval) *yylval = atoi(yytext);
+        if (yylval) yylval->INTEGER = atoi(yytext);
         lxr_print_token(INTEGER, yylval);
         return INTEGER;
 
@@ -67,4 +91,13 @@ int lxr_process_proc(int token_type, YYSTYPE *yylval, YYLTYPE *yylloc, void *yys
     }
 
     return LEX_ERR;
+}
+
+
+void
+ast_print_preorder(struct ast_node * root, FILE * strm)
+{
+    if (strm == NULL) return;
+    if (root == NULL) return;
+
 }

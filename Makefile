@@ -1,8 +1,9 @@
-####################
-# General Commands #
-####################
+###########
+# General #
+###########
 RM = -rm -f
 
+REPORT_DIR = report
 
 ##########
 # Lexing #
@@ -28,11 +29,19 @@ PARSER_H   = $(PARSER_DIR)/parser.tab.h
 PARSER_C   = $(PARSER_DIR)/parser.tab.c
 
 
+#######
+# AST #
+#######
+AST_DIR = ast
+AST_H   = $(AST_DIR)/ast.h
+AST_C   = $(AST_DIR)/ast.c
+
+
 ##########
 # C Code #
 ##########
 MAIN_C = main.c
-SRCS_C = $(MAIN_C) $(LEXER_C) $(PARSER_C) $(LEXER_UTIL_C)
+SRCS_C = $(MAIN_C) $(LEXER_C) $(PARSER_C) $(LEXER_UTIL_C) $(AST_C)
 OBJS   = $(SRCS_C:%.c=%.o)
 
 EXEC = minilang
@@ -56,7 +65,8 @@ $(EXEC): $(OBJS)
 ##########################
 # No-Action Dependencies #
 ##########################
-$(MAIN_C): $(LEXER_H) $(PARSER_H) $(LEXER_UTIL_H)
+$(MAIN_C): $(LEXER_H) $(PARSER_H) $(LEXER_UTIL_H) $(AST_H)
+$(LEXER_UTIL_H): $(PARSER_H) $(LEXER_H)
 
 
 clean:
@@ -67,3 +77,5 @@ clean:
 
 	$(RM) $(OBJS)
 	$(RM) $(EXEC)
+
+	$(RM) $(REPORT_DIR)/*

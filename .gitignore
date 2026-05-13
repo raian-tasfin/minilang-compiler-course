@@ -2,3 +2,4 @@ lexer/lex.yy.*
 *.o
 minilang
 parser/parser.tab.*
+report/*
