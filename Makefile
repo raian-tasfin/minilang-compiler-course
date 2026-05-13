@@ -54,6 +54,14 @@ SYM_C   = $(SYM_DIR)/symtable.c
 SYM_H   = $(SYM_DIR)/symtable.h
 
 
+###############################
+# Intermediate Representation #
+###############################
+IR_DIR = intrep
+IR_C   = $(IR_DIR)/interp.c
+IR_H   = $(IR_DIR)/interp.h
+
+
 ##########
 # C Code #
 ##########
@@ -67,6 +75,7 @@ SRCS_C += $(LEXER_UTIL_C)
 SRCS_C += $(AST_C)
 SRCS_C += $(CLI_C)
 SRCS_C += $(SYM_C)
+SRCS_C += $(IR_C)
 
 OBJS   = $(SRCS_C:%.c=%.o)
 
@@ -95,6 +104,7 @@ $(MAIN_C): $(LEXER_H) $(PARSER_H) $(LEXER_UTIL_H) $(AST_H) $(CLI_H) $(SYM_H)
 $(LEXER_UTIL_H): $(PARSER_H) $(LEXER_H)
 $(CLI_C): $(CLI_H)
 $(SYM_C): $(SYM_H)
+$(IR_C): $(IR_H)
 
 
 clean:

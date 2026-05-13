@@ -6,17 +6,6 @@
 /***********************
  * Private Definitions *
  ***********************/
-struct symrec {
-    char * name;
-    struct symrec * next;
-    int type;
-};
-
-struct scope {
-    struct symrec * head;
-    struct scope * parent;
-};
-
 static struct scope *
 scope_new(struct symrec * head, struct scope * parent)
 {
@@ -107,4 +96,11 @@ symbol_insert(struct scope * scope, char * name, int type)
     if (!name) return NULL;
     if (symrec_inscope(scope, name)) return NULL;
     return scope->head = symrec_new(name, scope->head, type);
+}
+
+
+char *
+symbol_name(struct symrec * sym)
+{
+    return sym->name;
 }

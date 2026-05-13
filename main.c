@@ -6,6 +6,7 @@
 #include "lexer/lex.yy.h"
 #include "ast/ast.h"
 #include "symtable/symtable.h"
+#include "intrep/interp.h"
 
 
 int main(int argc, char * const * argv)
@@ -69,6 +70,13 @@ int main(int argc, char * const * argv)
     if (ast_ctx.dot) ast_print_dot(ast_root, ast_ctx.dot);
     if (ast_ctx.text) ast_print_texttree(ast_root, ast_ctx.text);
 
+
+   /*******************************
+    * Intermediate Representation *
+    *******************************/
+    struct scope * scope = scope_enter_new(NULL);
+    struct ir_program * ir_lines = ir_generate(ast_root, scope);
+    ir_print(ir_lines);
 
     /************
      * Destruct *

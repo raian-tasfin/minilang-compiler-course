@@ -45,7 +45,7 @@ void ast_print_postorder(struct ast_node * root, FILE * strm);
 void ast_print_texttree(struct ast_node * root, FILE * strm);
 void ast_print_dot(struct ast_node * root, FILE * strm);
 void ast_delete(struct ast_node ** root);
-
+int ast_cnt_nodes(struct ast_node * root);
 
 #endif
 // AST_H

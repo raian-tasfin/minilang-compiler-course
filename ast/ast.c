@@ -250,3 +250,21 @@ ast_delete(struct ast_node ** root)
     free(root[0]);
     root[0] = NULL;
 }
+
+
+int
+ast_cnt_nodes(struct ast_node * root)
+{
+    if (!root) return 0;
+    switch (root->token_type) {
+    case INTEGER:   return 1;
+    case AST_SUBEXPR: return 1 + ast_cnt_nodes(root->child);
+    case ADD:
+    case SUB:
+    case MUL:
+    case DIV:
+    case MOD: return 1 + (ast_cnt_nodes(root->left)
+                          + ast_cnt_nodes(root->right));
+    }
+    return 0;
+}
