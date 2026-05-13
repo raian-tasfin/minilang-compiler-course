@@ -46,6 +46,14 @@ AST_H   = $(AST_DIR)/ast.h
 AST_C   = $(AST_DIR)/ast.c
 
 
+################
+# Symbol Table #
+################
+SYM_DIR = symtable
+SYM_C   = $(SYM_DIR)/symtable.c
+SYM_H   = $(SYM_DIR)/symtable.h
+
+
 ##########
 # C Code #
 ##########
@@ -58,6 +66,7 @@ SRCS_C += $(PARSER_C)
 SRCS_C += $(LEXER_UTIL_C)
 SRCS_C += $(AST_C)
 SRCS_C += $(CLI_C)
+SRCS_C += $(SYM_C)
 
 OBJS   = $(SRCS_C:%.c=%.o)
 
@@ -82,9 +91,10 @@ $(EXEC): $(OBJS)
 ##########################
 # No-Action Dependencies #
 ##########################
-$(MAIN_C): $(LEXER_H) $(PARSER_H) $(LEXER_UTIL_H) $(AST_H) $(CLI_H)
+$(MAIN_C): $(LEXER_H) $(PARSER_H) $(LEXER_UTIL_H) $(AST_H) $(CLI_H) $(SYM_H)
 $(LEXER_UTIL_H): $(PARSER_H) $(LEXER_H)
 $(CLI_C): $(CLI_H)
+$(SYM_C): $(SYM_H)
 
 
 clean:

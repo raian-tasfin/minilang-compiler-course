@@ -5,6 +5,8 @@
 #include "parser/parser.tab.h"
 #include "lexer/lex.yy.h"
 #include "ast/ast.h"
+#include "symtable/symtable.h"
+
 
 int main(int argc, char * const * argv)
 {
