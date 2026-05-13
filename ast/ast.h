@@ -33,6 +33,8 @@ ast_ctr_binop(int op_type,
 void ast_print_postorder(struct ast_node * root, FILE * strm);
 void ast_print_texttree(struct ast_node * root, FILE * strm);
 void ast_print_dot(struct ast_node * root, FILE * strm);
+void ast_delete(struct ast_node ** root);
+
 
 #endif
 // AST_H

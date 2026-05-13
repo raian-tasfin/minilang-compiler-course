@@ -5,7 +5,25 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
+
+/****************
+ * Lexer Report *
+ ****************/
+struct lxr_rprt_ctx {
+    bool rprt;
+    char * path;
+    FILE * strm;
+    bool err;
+};
+
+struct lxr_rprt_ctx lxr_rprt_ctx_init(bool rprt, char * path);
+
+
+/**************************
+ * Lexical Analysis Utils *
+ **************************/
 /* Forward-declare yyscan_t so lexer_util.h does not need to pull in
  * lex.yy.h.  lex.yy.h in turn includes parser.tab.h, which would
  * create a circular dependency when ast.h → lexer_util.h is expanded
@@ -14,6 +32,7 @@
  * The concrete typedef is in lex.yy.h; this opaque alias is enough
  * for the function prototypes below.  Every .c file that calls these
  * functions must include lex.yy.h before including lexer_util.h. */
+
 #ifndef YY_TYPEDEF_YY_SCANNER_T
 #define YY_TYPEDEF_YY_SCANNER_T
 typedef void *yyscan_t;
@@ -32,10 +51,11 @@ char * lxr_toktostr(int token_type);
 
 
 void lxr_updt_loc(YYLTYPE *yylloc, void *yyscanner);
-int lxr_process_proc(int token_type,
-                     YYSTYPE *yylval,
-                     YYLTYPE *yylloc,
-                     void *yyscanner);
+int
+lxr_process_proc(int token_type,
+                 YYSTYPE *yylval,
+                 YYLTYPE *yylloc,
+                 void *yyscanner);
 
 #define lxr_process(t, yylval, yylloc, yyscanner)                   \
     do {                                                            \

@@ -2,12 +2,32 @@
  * yyscan_t typedef (and YYSTYPE/YYLTYPE via parser.tab.h) are visible
  * when lexer_util.h is processed. */
 #include "lex.yy.h"
+#include <stdio.h>
 #include "lexer_util.h"
 
 
 /**************/
 /* Public API */
 /**************/
+struct lxr_rprt_ctx
+lxr_rprt_ctx_init(bool rprt, char * path)
+{
+    struct lxr_rprt_ctx ctx = { .rprt = rprt, .path = path };
+    if (!rprt) return ctx;
+    if (!path) {
+        ctx.strm = stdout;
+        return ctx;
+    }
+    ctx.strm = fopen(ctx.path, "w");
+    if (!ctx.strm) {
+        ctx.err = true;
+        fopen("Failed to open file '%s'\n.", ctx.path);
+        return ctx;
+    }
+    return ctx;
+}
+
+
 char *
 lxr_toktostr(int token_type)
 {

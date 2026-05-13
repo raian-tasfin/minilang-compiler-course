@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "cli/cli.h"
+#include "lexer/lexer_util.h"
 #include "parser/parser.tab.h"
 #include "lexer/lex.yy.h"
 #include "ast/ast.h"
@@ -12,9 +13,15 @@ int main(int argc, char * const * argv)
      *********************/
     struct cli_opts cliopts = cli_get_opts(argc, argv);
     if (cliopts.err) return EXIT_FAILURE;
-    if (cliopts.lxr.rprt) printf("cliopts.lxr.rprt: true\n");
-    if (cliopts.lxr.path) printf("cliopts.lxr.path: %s\n",
-                                 cliopts.lxr.path);
+
+
+    /************************
+     * Lexer Report Context *
+     ************************/
+    struct lxr_rprt_ctx lxrprt_ctx =
+        lxr_rprt_ctx_init(cliopts.lxr.rprt, cliopts.lxr.path);
+    if (lxrprt_ctx.err) return EXIT_FAILURE;
+
 
     /****************
      * Init Scanner *
@@ -48,8 +55,17 @@ int main(int argc, char * const * argv)
     fclose(fdot);
 
 
-    /********************
-     * Destruct Scanner *
-     ********************/
+    /************
+     * Destruct *
+     ************/
+    /* ast
+     * scanner
+     * lexer report context
+     * cli options
+     */
+    ast_delete(&ast_root);
+    yylex_destroy(scanner);
+    fclose(lxrprt_ctx.strm);
+
     return EXIT_SUCCESS;
 }

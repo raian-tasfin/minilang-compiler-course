@@ -192,3 +192,19 @@ void ast_print_dot(struct ast_node * root, FILE * strm)
     ast_to_dot(root, strm, -1, &dot_id);
     fprintf(strm, "}\n");
 }
+
+
+
+void
+ast_delete(struct ast_node ** root)
+{
+    if (!root) return;
+    if (!*root) return;
+
+    if (root[0]->child) ast_delete(&root[0]->child);
+    if (root[0]->left) ast_delete(&root[0]->left);
+    if (root[0]->right) ast_delete(&root[0]->right);
+
+    free(root[0]);
+    root[0] = NULL;
+}
