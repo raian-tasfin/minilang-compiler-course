@@ -1,0 +1,3 @@
+lexer/lex.yy.*
+*.o
+minilang
