@@ -1,6 +1,7 @@
 %code requires {
 #include <stdio.h>
 #include "../ast/ast.h"
+#include "../ast/ast_kind.h"
 }
 
 %code provides {
@@ -30,13 +31,6 @@ yyerror(YYLTYPE * loc,
 %token LEX_CONT
 %token NEWLINE
 %token LEX_ERR
-
-
-/***************************
- * AST-Control Token Types *
- ***************************/
-%token AST_SUBEXPR
-
 
 /**********
  * Tokens *
@@ -78,11 +72,11 @@ NEWLINE          { $$ = NULL; }
 
 expr:
 INTEGER           { $$ = ast_ctr_integer($1); }
-| expr ADD expr   { $$ = ast_ctr_binop(ADD, $1, $3);  }
-| expr SUB expr   { $$ = ast_ctr_binop(SUB, $1, $3);  }
-| expr MUL expr   { $$ = ast_ctr_binop(MUL, $1, $3);  }
-| expr DIV expr   { $$ = ast_ctr_binop(DIV, $1, $3);  }
-| expr MOD expr   { $$ = ast_ctr_binop(MOD, $1, $3);  }
+| expr ADD expr   { $$ = ast_ctr_binop(astk_from_tok(ADD), $1, $3);  }
+| expr SUB expr   { $$ = ast_ctr_binop(astk_from_tok(SUB), $1, $3);  }
+| expr MUL expr   { $$ = ast_ctr_binop(astk_from_tok(MUL), $1, $3);  }
+| expr DIV expr   { $$ = ast_ctr_binop(astk_from_tok(DIV), $1, $3);  }
+| expr MOD expr   { $$ = ast_ctr_binop(astk_from_tok(MOD), $1, $3);  }
 | LPRN expr RPRN  { $$ = $2; }
 ;
 

@@ -44,7 +44,8 @@ PARSER_C   = $(PARSER_DIR)/parser.tab.c
 AST_DIR = ast
 AST_H   = $(AST_DIR)/ast.h
 AST_C   = $(AST_DIR)/ast.c
-
+AST_KIND_H   = $(AST_DIR)/ast_kind.h
+AST_KIND_C   = $(AST_DIR)/ast_kind.c
 
 ################
 # Symbol Table #
@@ -57,9 +58,9 @@ SYM_H   = $(SYM_DIR)/symtable.h
 ###############################
 # Intermediate Representation #
 ###############################
-IR_DIR = intrep
-IR_C   = $(IR_DIR)/interp.c
-IR_H   = $(IR_DIR)/interp.h
+# IR_DIR = intrep
+# IR_C   = $(IR_DIR)/interp.c
+# IR_H   = $(IR_DIR)/interp.h
 
 
 ##########
@@ -73,9 +74,10 @@ SRCS_C += $(LEXER_C)
 SRCS_C += $(PARSER_C)
 SRCS_C += $(LEXER_UTIL_C)
 SRCS_C += $(AST_C)
+SRCS_C += $(AST_KIND_C)
 SRCS_C += $(CLI_C)
 SRCS_C += $(SYM_C)
-SRCS_C += $(IR_C)
+# SRCS_C += $(IR_C)
 
 OBJS   = $(SRCS_C:%.c=%.o)
 
@@ -104,7 +106,7 @@ $(MAIN_C): $(LEXER_H) $(PARSER_H) $(LEXER_UTIL_H) $(AST_H) $(CLI_H) $(SYM_H)
 $(LEXER_UTIL_H): $(PARSER_H) $(LEXER_H)
 $(CLI_C): $(CLI_H)
 $(SYM_C): $(SYM_H)
-$(IR_C): $(IR_H)
+# $(IR_C): $(IR_H)
 
 
 clean:

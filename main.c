@@ -74,9 +74,9 @@ int main(int argc, char * const * argv)
    /*******************************
     * Intermediate Representation *
     *******************************/
-    struct scope * scope = scope_enter_new(NULL);
-    struct ir_program * ir_lines = ir_generate(ast_root, scope);
-    ir_print(ir_lines);
+    /* struct scope * scope = scope_enter_new(NULL); */
+    /* struct ir_program * ir_lines = ir_generate(ast_root, scope); */
+    /* ir_print(ir_lines); */
 
     /************
      * Destruct *

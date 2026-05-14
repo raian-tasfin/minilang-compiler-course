@@ -1,5 +1,5 @@
 #include "ast.h"
-#include "../lexer/lexer_util.h"
+#include "ast_kind.h"
 #include <stdint.h>
 #include <stdio.h>
 
@@ -42,7 +42,7 @@ ast_ctr_integer(int val)
         return NULL;
     }
     node[0] = (struct ast_node) {
-        .token_type = INTEGER,
+        .type = AST_INTEGER,
         .value.INTEGER = val,
         .left = NULL,
         .right = NULL
@@ -50,25 +50,8 @@ ast_ctr_integer(int val)
     return node;
 }
 
-
 struct ast_node *
-ast_ctr_subexpr(struct ast_node * subexpr)
-{
-    struct ast_node * node = malloc(sizeof(struct ast_node));
-    if (!node) {
-        fprintf(stderr, "Failed allocating node.\n");
-        return NULL;
-    }
-    node[0] = (struct ast_node) {
-        .token_type = AST_SUBEXPR,
-        .child = subexpr
-    };
-    return node;
-}
-
-
-struct ast_node *
-ast_ctr_binop(int op_type,
+ast_ctr_binop(enum ast_kind op_type,
               struct ast_node * left,
               struct ast_node * right)
 {
@@ -78,44 +61,12 @@ ast_ctr_binop(int op_type,
         return NULL;
     }
     node[0] = (struct ast_node) {
-        .token_type = op_type,
+        .type = op_type,
         .left = left,
         .right = right
     };
     return node;
 }
-
-
-void
-ast_print_postorder(struct ast_node *root, FILE *strm)
-{
-    if (!strm) return;
-    if (!root) return;
-    switch (root->token_type) {
-    case LEX_ERR:
-        fprintf(strm, "%s\n", lxr_toktostr(root->token_type));
-        return;
-    case INTEGER:
-        fprintf(strm,
-                "%s: %d\n",
-                lxr_toktostr(root->token_type),
-                root->value.INTEGER);
-        return;
-    case AST_SUBEXPR:
-        ast_print_postorder(root->child, strm);
-        break;
-    case ADD:
-    case SUB:
-    case MUL:
-    case DIV:
-    case MOD:
-        ast_print_postorder(root->left, strm);
-        ast_print_postorder(root->right, strm);
-        break;
-    }
-    fprintf(strm, "%s\n", lxr_toktostr(root->token_type));
-}
-
 
 
 /*********************
@@ -137,27 +88,24 @@ ast_print_texttree_r(struct ast_node *root,
                      int  is_last)
 {
     if (!strm || !root) return;
-    if (root->token_type == AST_SUBEXPR) {
-        ast_print_texttree_r(root->child, strm, prefix, plen, is_last);
-        return;
-    }
     const char *connector = is_last ? TT_LAST : TT_BRANCH;
     fprintf(strm, "%s%s", prefix, connector);
-    switch (root->token_type) {
-    case INTEGER:
-        fprintf(strm, "%s: %d\n", lxr_toktostr(INTEGER), root->value.INTEGER);
-        return;
-    case LEX_ERR:
-        fprintf(strm, "%s\n", lxr_toktostr(LEX_ERR));
+    switch (root->type) {
+    case AST_INTEGER:
+        fprintf(strm, "%s: %d\n", astk_tokstr(AST_INTEGER), root->value.INTEGER);
         return;
     default:
-        fprintf(strm, "%s\n", lxr_toktostr(root->token_type));
+        fprintf(strm, "%s\n", astk_tokstr(root->type));
         break;
     }
-    switch (root->token_type) {
-    case ADD: case SUB: case MUL: case DIV: case MOD: {
-        const char *cont = is_last ? TT_BLANK : TT_VERT;
-        int clen = (int)strlen(cont);
+    switch (root->type) {
+    case AST_ADD:
+    case AST_SUB:
+    case AST_MUL:
+    case AST_DIV:
+    case AST_MOD: {
+        const char * cont = is_last ? TT_BLANK : TT_VERT;
+        int clen = (int) strlen(cont);
         if (plen + clen < TT_MAX_DEPTH * TT_PREFIX_STEP) {
             memcpy(prefix + plen, cont, clen);
             prefix[plen + clen] = '\0';
@@ -193,7 +141,7 @@ ast_to_dot(struct ast_node * root,
 {
     if (!root || !strm) return -1;
     int my_id = dot_id[0]++;
-    if (root->token_type == INTEGER) {
+    if (root->type == AST_INTEGER) {
         fprintf(strm,
                 "  node%d [label=\"INTEGER: %d\"];\n",
                 my_id,
@@ -202,20 +150,17 @@ ast_to_dot(struct ast_node * root,
         fprintf(strm,
                 "  node%d [label=\"%s\"];\n",
                 my_id,
-                lxr_toktostr(root->token_type));
+                astk_tokstr(root->type));
     }
     if (parent_id != -1) {
         fprintf(strm, "  node%d -> node%d;\n", parent_id, my_id);
     }
-    switch (root->token_type) {
-    case AST_SUBEXPR:
-        ast_to_dot(root->child, strm, my_id, dot_id);
-        break;
-    case ADD:
-    case SUB:
-    case MUL:
-    case DIV:
-    case MOD:
+    switch (root->type) {
+    case AST_ADD:
+    case AST_SUB:
+    case AST_MUL:
+    case AST_DIV:
+    case AST_MOD:
         ast_to_dot(root->left, strm, my_id, dot_id);
         ast_to_dot(root->right, strm, my_id, dot_id);
         break;
@@ -256,15 +201,15 @@ int
 ast_cnt_nodes(struct ast_node * root)
 {
     if (!root) return 0;
-    switch (root->token_type) {
-    case INTEGER:   return 1;
-    case AST_SUBEXPR: return 1 + ast_cnt_nodes(root->child);
-    case ADD:
-    case SUB:
-    case MUL:
-    case DIV:
-    case MOD: return 1 + (ast_cnt_nodes(root->left)
-                          + ast_cnt_nodes(root->right));
+    switch (root->type) {
+    case AST_INTEGER:   return 1;
+    case AST_ADD:
+    case AST_SUB:
+    case AST_MUL:
+    case AST_DIV:
+    case AST_MOD: return 1 + (ast_cnt_nodes(root->left)
+                              + ast_cnt_nodes(root->right));
     }
+
     return 0;
 }

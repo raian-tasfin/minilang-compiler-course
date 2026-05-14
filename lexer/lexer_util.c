@@ -63,7 +63,6 @@ lxr_toktostr(int token_type)
 {
     switch (token_type) {
     case ADD:         return "ADD";
-    case AST_SUBEXPR: return "AST_SUBEXPR";
     case DIV:         return "DIV";
     case INTEGER:     return "INTEGER";
     case LEX_BLNK:    return "LEX_BLNK";

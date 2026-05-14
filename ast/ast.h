@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "ast_kind.h"
 #include "../cli/cli.h"
-#include "../parser/parser.tab.h"
 
 #ifndef AST_H
 #define AST_H 1
@@ -16,7 +16,7 @@ struct ast_ctx {
 struct ast_ctx ast_ctx_init(struct cli_ast_opts opts);
 
 struct ast_node {
-    int token_type;
+    enum ast_kind type;
 
     /* Value union */
     union {
@@ -37,7 +37,7 @@ struct ast_node * ast_ctr_integer(int val);
 struct ast_node * ast_ctr_subexpr(struct ast_node * subexpr);
 
 struct ast_node *
-ast_ctr_binop(int op_type,
+ast_ctr_binop(enum ast_kind op_type,
               struct ast_node * left,
               struct ast_node * right);
 
