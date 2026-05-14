@@ -13,6 +13,11 @@ struct cli_lxr_opts {
     char * path;
 };
 
+struct cli_ir_opts {
+    bool rprt;
+    char * path;
+};
+
 struct cli_ast_opts {
     bool dot;
     char * dot_path;
@@ -24,6 +29,7 @@ struct cli_ast_opts {
 struct cli_opts {
     struct cli_lxr_opts lxr;
     struct cli_ast_opts ast;
+    struct cli_ir_opts ir;
     char * input_path;
     bool err;
 };

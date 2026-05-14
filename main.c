@@ -13,6 +13,7 @@ int main(int argc, char * const * argv)
 {
     struct cli_opts cliopts = {0};
     struct lxr_ctx lxr_ctx = {0};
+    struct ir_ctx ir_ctx = {0};
     yyscan_t scanner = NULL;
     struct ast_node * ast_root = NULL;
     struct ast_ctx ast_ctx = {0};
@@ -71,17 +72,28 @@ int main(int argc, char * const * argv)
     if (ast_ctx.text) ast_print_texttree(ast_root, ast_ctx.text);
 
 
+
    /*******************************
     * Intermediate Representation *
     *******************************/
-    /* struct scope * scope = scope_enter_new(NULL); */
-    /* struct ir_program * ir_lines = ir_generate(ast_root, scope); */
-    /* ir_print(ir_lines); */
+    struct ir_block * ir_block = ir_block_generate(ast_root);
+
+
+    /****************
+     * IR Reporting *
+     ****************/
+    ir_ctx = ir_ctx_init(&cliopts);
+    if (ir_ctx.err) {
+        exit_status = EXIT_FAILURE;
+        goto destruct;
+    }
+    ir_print(&ir_ctx, ir_block);
 
     /************
      * Destruct *
      ************/
-    /* ast
+    /* ir report context
+     * ast
      * scanner
      * lexer report context
      * cli options
@@ -92,5 +104,6 @@ int main(int argc, char * const * argv)
     if (lxr_ctx.rprt && lxr_ctx.rprt != stdout) fclose(lxr_ctx.rprt);
     if (ast_ctx.dot) fclose(ast_ctx.dot);
     if (ast_ctx.text) fclose(ast_ctx.text);
+    if (ir_ctx.rprt && ir_ctx.rprt != stdout) fclose(ir_ctx.rprt);
     return exit_status;
 }

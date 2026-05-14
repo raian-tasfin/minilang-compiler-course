@@ -58,9 +58,9 @@ SYM_H   = $(SYM_DIR)/symtable.h
 ###############################
 # Intermediate Representation #
 ###############################
-# IR_DIR = intrep
-# IR_C   = $(IR_DIR)/interp.c
-# IR_H   = $(IR_DIR)/interp.h
+IR_DIR = intrep
+IR_C   = $(IR_DIR)/interp.c
+IR_H   = $(IR_DIR)/interp.h
 
 
 ##########
@@ -77,7 +77,7 @@ SRCS_C += $(AST_C)
 SRCS_C += $(AST_KIND_C)
 SRCS_C += $(CLI_C)
 SRCS_C += $(SYM_C)
-# SRCS_C += $(IR_C)
+SRCS_C += $(IR_C)
 
 OBJS   = $(SRCS_C:%.c=%.o)
 
@@ -102,11 +102,18 @@ $(EXEC): $(OBJS)
 ##########################
 # No-Action Dependencies #
 ##########################
-$(MAIN_C): $(LEXER_H) $(PARSER_H) $(LEXER_UTIL_H) $(AST_H) $(CLI_H) $(SYM_H)
+$(MAIN_C): $(LEXER_H)
+$(MAIN_C): $(PARSER_H)
+$(MAIN_C): $(LEXER_UTIL_H)
+$(MAIN_C): $(AST_H)
+$(MAIN_C): $(CLI_H)
+$(MAIN_C): $(SYM_H)
+$(MAIN_C): $(IR_H)
+
 $(LEXER_UTIL_H): $(PARSER_H) $(LEXER_H)
 $(CLI_C): $(CLI_H)
 $(SYM_C): $(SYM_H)
-# $(IR_C): $(IR_H)
+$(IR_C): $(IR_H)
 
 
 clean:

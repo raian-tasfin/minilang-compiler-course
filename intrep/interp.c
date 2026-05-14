@@ -1,174 +1,211 @@
 #include "interp.h"
+#include "../ast/ast_kind.h"
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
 
 
-/*********************
- * Private Utilities *
- *********************/
-char
-ir_optoch(int token_type)
+struct ir_sym *
+ir_sym_new(char * name, enum ir_type type, int * var_id)
 {
-    switch (token_type) {
-    case ADD: return '+';
-    case SUB: return '-';
-    case MUL: return '*';
-    case DIV: return '/';
-    case MOD: return '%';
+    struct ir_sym * new = malloc(sizeof(struct ir_sym));
+    new[0] = (struct ir_sym){
+        .id = var_id[0]++,
+        .type = type
+    };
+    if (name) {
+        strncpy(new->src_name, name, 63);
+        new->src_var = true;
+    }
+    return new;
+}
+
+struct ir_stmt *
+ir_stmt_new(enum ir_type type,
+            struct ir_sym * dst,
+            struct ir_arg arg1,
+            struct ir_arg arg2)
+{
+    struct ir_stmt * new = malloc(sizeof(struct ir_stmt));
+    *new = (struct ir_stmt) {
+        .type = type,
+        .dst = dst,
+        .arg1 = arg1,
+        .arg2 = arg2
+    };
+    return new;
+}
+
+void
+ir_block_push(struct ir_stmt stmt, struct ir_block * block)
+{
+    if (block->size == block->cap) {
+        block->cap = (5 + block->cap) * 2;
+        block->stmts
+            = realloc(block->stmts,
+                      block->cap * sizeof(struct ir_stmt));
+    }
+    block->stmts[block->size++] = stmt;
+}
+
+enum ir_type
+ir_astk_to_irt(enum ast_kind type)
+{
+    switch (type) {
+    case AST_INTEGER: return IR_INTEGER;
+    case AST_ADD: return IR_ADD;
+    case AST_SUB: return IR_SUB;
+    case AST_MUL: return IR_MUL;
+    case AST_DIV: return IR_DIV;
+    case AST_MOD: return IR_MOD;
+    };
+}
+
+struct ir_arg
+ir_block_generate_rec(struct ast_node * node,
+                      int * var_id,
+                      struct ir_block * block)
+{
+    switch (node->type) {
+    case AST_INTEGER: {
+        return (struct ir_arg) {
+            .type = IR_INTEGER,
+            .INTEGER = node->value.INTEGER,
+        };
+    }
+    case AST_ADD:
+    case AST_SUB:
+    case AST_MUL:
+    case AST_DIV:
+    case AST_MOD: {
+        struct ir_sym * tmp = ir_sym_new(NULL, IR_SYM, var_id);
+        struct ir_arg arg1 =
+            ir_block_generate_rec(node->left, var_id, block);
+        struct ir_arg arg2 =
+            ir_block_generate_rec(node->right, var_id, block);
+        struct ir_stmt stmt = {
+            .type = ir_astk_to_irt(node->type),
+            .dst = tmp,
+            .arg1 = arg1,
+            .arg2 = arg2
+        };
+        ir_block_push(stmt, block);
+        return (struct ir_arg) {
+            .sym = tmp,
+            .type = IR_SYM
+        };
+    }
+    }
+}
+
+struct ir_block *
+ir_block_generate(struct ast_node * root)
+{
+    if (!root) return NULL;
+    int var_id = 0;
+    struct ir_block * new = malloc(sizeof(struct ir_block));
+    *new = (struct ir_block){0};
+    ir_block_generate_rec(root, &var_id, new);
+    return new;
+}
+
+
+void
+ir_fprintf(struct ir_ctx * ctx, const char *fmt, ...)
+{
+    if (!ctx || !ctx->rprt) return;
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(ctx->rprt, fmt, args);
+    va_end(args);
+}
+
+
+/**************/
+/* Public API */
+/**************/
+struct ir_ctx
+ir_ctx_init(struct cli_opts * cliopts)
+{
+    struct ir_ctx ctx = { 0 };
+    if (!cliopts) return ctx;
+
+    /**************
+     * Report Ctx *
+     **************/
+    if (!cliopts->ir.rprt) return ctx;
+    if (!cliopts->ir.path) ctx.rprt = stdout;
+    else ctx.rprt = fopen(cliopts->ir.path, "w");
+    if (!ctx.rprt) {
+        fprintf(stderr,
+                "Could not open file '%s'\n",
+                cliopts->ir.path);
+        ctx.err = true;
+    }
+
+    return ctx;
+}
+
+
+void
+ir_sym_to_str(struct ir_sym * sym, char * dest)
+{
+    if (sym->src_var) {
+        sprintf(dest, "%s", sym->src_name);
+        return;
+    }
+    sprintf(dest, "tmp_%d", sym->id);
+}
+
+void
+ir_arg_to_str(struct ir_arg arg, char * dest)
+{
+    if (arg.type == IR_INTEGER) {
+        sprintf(dest, "%d", arg.INTEGER);
+        return;
+    }
+    ir_sym_to_str(arg.sym, dest);
+}
+
+char
+ir_opch(enum ir_type type)
+{
+    switch (type) {
+    case IR_ADD: return '+';
+    case IR_SUB: return '-';
+    case IR_MUL: return '*';
+    case IR_DIV: return '/';
+    case IR_MOD: return '%';
     default: return '?';
     }
 }
 
-struct symrec *
-ir_insert_symbol(int * tmpid, struct scope * scope, int type)
-{
-    if (!tmpid || !scope) return NULL;
-    char name[32];
-    struct symrec * sym;
-    while (1) {
-        snprintf(name, sizeof(name), "tmp%d", *tmpid);
-        tmpid[0]++;
-        if ((sym = symbol_insert(scope, name, type)) != NULL) break;
-    }
-    tmpid[0]++;
-    return sym;
-}
-
-
-struct ir_line
-ir_line_new(int type,
-            struct symrec * dest,
-            union arg arg1,
-            union arg arg2);
-
-
-
-static struct symrec *
-ir_create_rec(struct ast_node * node,
-              struct scope * scope,
-              struct ir_line * lines,
-              int * tmp_id,
-              int * line_indx)
-{
-    if (!node) return NULL;
-    switch (node->token_type) {
-    case INTEGER: {
-        struct symrec * sym = ir_insert_symbol(tmp_id, scope, INTEGER);
-        union arg arg1 = { .value = node->value.INTEGER };
-        union arg arg2 = { .sym = NULL };
-        lines[line_indx[0]++] = ir_line_new(INTEGER, sym, arg1, arg2);
-        return sym;
-    }
-    case AST_SUBEXPR: {
-        struct symrec * child_sym =
-            ir_create_rec(node->child,
-                          scope,
-                          lines,
-                          tmp_id,
-                          line_indx);
-        struct symrec * sym = ir_insert_symbol(tmp_id, scope, node->token_type);
-        union arg arg1 = { .sym = child_sym };
-        union arg arg2 = { .sym = NULL };
-        lines[line_indx[0]++] = ir_line_new(AST_SUBEXPR, sym, arg1, arg2);
-        return sym;
-    }
-    case ADD:
-    case SUB:
-    case MUL:
-    case DIV:
-    case MOD: {
-        struct symrec * left_sym =
-            ir_create_rec(node->left,
-                          scope,
-                          lines,
-                          tmp_id,
-                          line_indx);
-        struct symrec * right_sym =
-            ir_create_rec(node->right,
-                          scope,
-                          lines,
-                          tmp_id,
-                          line_indx);
-        struct symrec * sym = ir_insert_symbol(tmp_id, scope, node->token_type);
-        union arg arg1 = { .sym = left_sym };
-        union arg arg2 = { .sym = right_sym };
-        lines[line_indx[0]++] = ir_line_new(node->token_type, sym, arg1, arg2);
-        return sym;
-    }
-    }
-    return NULL;
-}
-
-
 void
-ir_print_line(struct ir_line * line)
+ir_print(struct ir_ctx * ctx, struct ir_block * block)
 {
-    if (!line) return;
-    switch (line->type) {
-    case INTEGER: {
-        fprintf(stdout, "%5s = %10d\n", line->dest->name, line->arg1.value);
-        return;
-    }
-    case AST_SUBEXPR: {
-        fprintf(stdout, "%5s = %10s\n",
-                line->dest->name,
-                line->arg1.sym->name);
-        return;
-    }
-    case ADD:
-    case SUB:
-    case MUL:
-    case DIV:
-    case MOD: {
-        char left[11], right[11];
-        snprintf(left, sizeof(left), "%s", line->arg1.sym->name);
-        snprintf(right, sizeof(right), "%s", line->arg2.sym->name);
-        fprintf(stdout, "%5s = %10s %c %10s\n",
-                line->dest->name,
-                left,
-                ir_optoch(line->type),
-                right);
-        return;
-    }
-    }
-}
-
-
-/**************
- * Public-Api *
- **************/
-struct ir_line
-ir_line_new(int type,
-            struct symrec * dest,
-            union arg arg1,
-            union arg arg2)
-{
-    return (struct ir_line){
-        .type = type,
-        .dest = dest,
-        .arg1 = arg1,
-        .arg2 = arg2
-    };
-}
-
-
-struct ir_program *
-ir_generate(struct ast_node * root, struct scope * scope)
-{
-    if (!root) return NULL;
-    struct ir_program * prog = malloc(sizeof(struct ir_program));
-    int cnt_nodes = ast_cnt_nodes(root);
-    prog->size = cnt_nodes;
-    prog->lines = malloc(cnt_nodes * sizeof(struct ir_line));
-    int tmpid =  0;
-    int line_indx =  0;
-    ir_create_rec(root, scope, prog->lines, &tmpid, &line_indx);
-    return prog;
-}
-
-void
-ir_print(struct ir_program * prog)
-{
-    for (int i = 0; i < prog->size; i++) {
-        ir_print_line(&prog->lines[i]);
+    if (!ctx || !ctx->rprt || ctx->err || !block) return;
+    for (int i = 0; i < block->size; i++) {
+        switch (block->stmts[i].type) {
+        case IR_ADD:
+        case IR_SUB:
+        case IR_MUL:
+        case IR_DIV:
+        case IR_MOD: {
+            char dest[64];
+            char arg1[64];
+            char arg2[64];
+            ir_sym_to_str(block->stmts[i].dst, dest);
+            ir_arg_to_str(block->stmts[i].arg1, arg1);
+            ir_arg_to_str(block->stmts[i].arg2, arg2);
+            ir_fprintf(ctx,
+                       "%5s = %5s %c %5s\n",
+                       dest,
+                       arg1,
+                       ir_opch(block->stmts[i].type),
+                       arg2);
+        }
+        }
     }
 }

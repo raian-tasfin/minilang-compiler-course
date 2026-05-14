@@ -30,6 +30,7 @@ cli_get_opts(int argc, char * const *argv)
     static struct option opts[] = {
         {"lex-report", optional_argument, NULL, 'l' },
         {"ast-report", required_argument, NULL, 'a' },
+        {"ir-report", optional_argument, NULL, 'i' },
         {"help", optional_argument, NULL, 'h' },
         {0, 0, 0, 0}
     };
@@ -37,7 +38,7 @@ cli_get_opts(int argc, char * const *argv)
     int opt;
     int optindx = 0;
     while ((opt
-            = getopt_long(argc, argv, "l::a:h", opts, &optindx))
+            = getopt_long(argc, argv, "l::a:i::h", opts, &optindx))
            != -1) {
         switch (opt) {
         case 'l':
@@ -50,6 +51,10 @@ cli_get_opts(int argc, char * const *argv)
                 cliopts.err = true;
                 return cliopts;
             }
+            break;
+        case 'i':
+            cliopts.ir.rprt = true;
+            cliopts.ir.path = optarg;
             break;
         case 'h':
             cliopts.err = true;
@@ -84,6 +89,9 @@ cli_help(void)
             "                              FILE is omitted, output will be written\n"
             "                              to stdout.\n"
             "  -a, --ast-report=FMT[:FILE] Write an AST report in FMT (dot or text).\n"
+            "  -i, --ir-report[=FILE]      Write intermediate representation to FILE. If\n"
+            "                              FILE is omitted, output will be written\n"
+            "                              to stdout.\n"
             "                              If FILE is provided after a colon, output\n"
             "                              is written there; otherwise, it goes to stdout.\n"
             "  -h, --help                  Display this help and exit.\n"
