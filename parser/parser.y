@@ -83,7 +83,7 @@ INTEGER           { $$ = ast_ctr_integer($1); }
 | expr MUL expr   { $$ = ast_ctr_binop(MUL, $1, $3);  }
 | expr DIV expr   { $$ = ast_ctr_binop(DIV, $1, $3);  }
 | expr MOD expr   { $$ = ast_ctr_binop(MOD, $1, $3);  }
-| LPRN expr RPRN  { $$ = ast_ctr_subexpr($2); }
+| LPRN expr RPRN  { $$ = $2; }
 ;
 
 %%
