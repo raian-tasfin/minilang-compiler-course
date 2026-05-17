@@ -1,7 +1,7 @@
 #ifndef VM_CODEGEN_H
 #define VM_CODEGEN_H 1
 
-#include "vm.h"
+#include "../vm/vm.h"
 #include <stdint.h>
 
 /*
