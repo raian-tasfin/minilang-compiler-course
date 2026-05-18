@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 
 #ifndef VM_UTIL_H
 #define VM_UTIL_H 1
@@ -12,6 +13,7 @@ int vm_err(char * owner, const char *format, ...);
 void * vm_malloc(char * owner, int size, char * resource_name);
 void * vm_realloc(char * owner, void * ptr, int size, char * resource_name);
 FILE * vm_fopen(char * owner, char * path, char * mode, FILE * default_file);
+bool vm_fclose(char * owner, FILE * stream);
 
 #endif
 // VM_UTIL_H

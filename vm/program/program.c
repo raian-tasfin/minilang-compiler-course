@@ -19,7 +19,9 @@ vmprog_push_back(struct vmprog_program * prog, union vm_instr_view view)
     if (prog->size == prog->cap) {
         int new_cap = prog->cap * 2 + 1;
         void * new_buff = NULL;
-        if (!(new_buff = vmprog_realloc(prog->buff, new_cap, "Program Buffer"))) return false;
+        if (!(new_buff = vmprog_realloc(prog->buff,
+                                        new_cap * sizeof(union vm_instr_view),
+                                        "Program Buffer"))) return false;
         prog->cap = new_cap;
         prog->buff = new_buff;
     }

@@ -29,7 +29,6 @@ vmcli_main(int argc, char **argv)
         return vmrun_main(argc - 1, argv + 1);
     } else if (strcmp(argv[1], "dasm") == 0) {
         return vmdasm_main(argc - 1, argv + 1);
-        return true;
     }
     vmcli_help();
     return false;

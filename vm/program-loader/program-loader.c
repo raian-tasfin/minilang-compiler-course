@@ -14,7 +14,6 @@ vmprog_ldr_load(char *input_path)
     if (!vmprog_ldr_ensure_ptr(input_path)) goto error;
     if (!(prog = vmprog_init())) goto error;
     if (!(f = vmprog_ldr_fopen(input_path, "rb", NULL))) goto error;
-
     while (fread(&instr.raw, sizeof(instr.raw), 1, f) == 1) {
         if (!vmprog_push_back(prog, instr))
             goto error;

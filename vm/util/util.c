@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <stdbool.h>
 
 void *
 vm_ensure_ptr_proc(char * owner, void * ptr, char * name)
@@ -20,8 +21,11 @@ vm_err(char * owner, const char *format, ...)
 {
     int ret = 0;
     if (owner) ret += fprintf(stderr, "[%s]: ", owner);
+
     va_list args;
-    ret += fprintf(stderr, format, args);
+    va_start(args, format);
+    ret += vfprintf(stderr, format, args);
+    va_end(args);
     return ret;
 }
 
@@ -40,7 +44,6 @@ vm_malloc(char * owner, int size, char * resource_name)
 void *
 vm_realloc(char * owner, void * ptr, int size, char * resource_name)
 {
-    if (!(vm_ensure_ptr(owner, ptr))) return NULL;
     if (!(vm_ensure_ptr(owner, resource_name))) return NULL;
 
     void * tmp = realloc(ptr, size);
@@ -71,4 +74,21 @@ vm_fopen(char * owner, char * path, char * mode, FILE * default_file)
         return NULL;
     }
     return res;
+}
+
+
+bool
+vm_fclose(char * owner, FILE * stream)
+{
+    if (!stream) return true;
+    if (stream == stdout) return true;
+    if (stream == stderr) return true;
+    if (stream == stdin) return true;
+
+    if (fclose(stream) != 0) {
+        vm_err(owner, "Error closing file: %s\n", strerror(errno));
+        return false;
+    }
+
+    return true;
 }

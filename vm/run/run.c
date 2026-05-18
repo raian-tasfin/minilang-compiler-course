@@ -1,6 +1,7 @@
 #include "cli.h"
 #include "run.h"
 #include "utils.h"
+#include "../vm-core/vm-core.h"
 #include "../program-loader/program-loader.h"
 #include "../program/program.h"
 #include <stdbool.h>
@@ -23,13 +24,20 @@ vmrun_main(int argc, char **argv)
     /* Load program */
     if (!(program = vmprog_ldr_load(opts.input_path))) goto error;
 
-    printf("[VM RUN]: Loaded program\n");
+    /* Spin up machine */
+    struct vm * vm = NULL;
+    if (!(vm = vm_init(opts.output_path, program))) goto error;
+
+    /* Run machine */
+    if (!vm_run(vm)) goto error;
 
     /* Exit */
     vmprog_destroy(&program);
+    vm_destroy(vm);
     return true;
 
 error:
     vmprog_destroy(&program);
+    vm_destroy(vm);
     return false;
 }

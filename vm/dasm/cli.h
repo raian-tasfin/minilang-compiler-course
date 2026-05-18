@@ -15,10 +15,6 @@ struct vmdasm_cli_opts {
 struct vmdasm_cli_opts
 vmdasm_cli_getopts(int argc, char **argv);
 
-
-bool
-vmdasm_cli_main(int argc, char **argv);
-
 void
 vmdasm_cli_help(void);
 

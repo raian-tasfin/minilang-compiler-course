@@ -7,7 +7,7 @@ RM = -rm -f
 #########
 # Flags #
 #########
-CFLAGS = -std=c11
+CFLAGS = -std=c11 -g3 -O0
 
 
 ###############

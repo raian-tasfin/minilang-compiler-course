@@ -1,4 +1,4 @@
-#include "../vm-core/vm-core.h"
+#include "../vm-core/vm-definitions.h"
 #include "utils.h"
 #include <stdbool.h>
 

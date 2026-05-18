@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "../program-loader/program-loader.h"
 #include "../program/program.h"
+#include "../vm-core/vm-definitions.h"
 #include "../vm-core/vm-core.h"
 #include <stdbool.h>
 #include <stdio.h>
@@ -35,10 +36,10 @@ vmdasm_dasm(struct vmprog_program * program, FILE * outstream)
                     program->buff[i].bin.arg2);
             break;
         case VM_PRNT:
-            fprintf(outstream, "\tr%d\n", program->buff[i].print.reg);
+            fprintf(outstream, "\tr%d", program->buff[i].print.reg);
             break;
-        case VM_EXIT:
-        case VM_ERR:
+        case VM_EXIT: break;
+        case VM_ERR: break;
         }
         fprintf(outstream, "\n");
     }
