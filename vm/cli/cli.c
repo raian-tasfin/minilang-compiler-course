@@ -12,6 +12,7 @@ vmcli_help(void)
             "    vm <subcommand> [options]\n\n"
             "subcommands:\n"
             "    run     run a program\n"
+            "    dasm    deassemble an object file\n"
             );
 }
 
@@ -23,7 +24,11 @@ vmcli_main(int argc, char **argv)
         return false;
     }
     if (strcmp(argv[1], "run") == 0) {
-        printf("SUCCESS\n");
+        printf("SUBCOMMAND RUN\n");
+        return true;
+        /* return vmrun_main(argc - 1, argv + 1); */
+    } else if (strcmp(argv[1], "dasm") == 0) {
+        printf("SUBCOMMAND DASM\n");
         return true;
         /* return vmrun_main(argc - 1, argv + 1); */
     }

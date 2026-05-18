@@ -31,7 +31,7 @@ MAIN_C = main.c
 MAIN_O = main.o
 MAIN_D = main.d
 
-EXEC = vmr
+EXEC = vm
 
 
 #######################
