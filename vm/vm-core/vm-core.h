@@ -23,6 +23,7 @@ vm_op : uint8_t
     VM_EXIT,
 };
 
+char * vm_op_to_str(enum vm_op op);
 
 
 /*********************

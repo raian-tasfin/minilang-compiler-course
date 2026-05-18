@@ -20,9 +20,9 @@ DIRS += dasm
 DIRS += util
 DIRS += program
 DIRS += program-loader
+DIRS += vm-core
 # DIRS += codegen
 # DIRS += testcases
-# DIRS += vm
 
 
 #########
