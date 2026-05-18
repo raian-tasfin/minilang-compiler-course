@@ -14,14 +14,14 @@ CFLAGS = -std=c11
 # Directories #
 ###############
 DIRS =
-# DIRS += cli
-# DIRS += codegen
-# DIRS += dasm
-# DIRS += program
-# DIRS += PROGRAm-loader
-# DIRS += run
-# DIRS += testcases
-# DIRS += vm
+DIRS += cli
+DIRS += codegen
+DIRS += dasm
+DIRS += program
+DIRS += PROGRAm-loader
+DIRS += run
+DIRS += testcases
+DIRS += vm
 
 
 #########

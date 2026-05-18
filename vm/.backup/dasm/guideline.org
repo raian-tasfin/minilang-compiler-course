@@ -1,0 +1,10 @@
+* Guideline
+
+This directory should implement the default sub-command of
+=vm=. External wrappers need to only include =./run.h= and call
+=bool vmrun_main(int argc, char ** argv)= with appropriate arguments.
+
+=./run.h= should NOT include any of the header files available
+here. Rather these should only be included by =./run.c= which
+implements =bool vmrun_main(int argc, char ** argv)=. This is to avoid
+filling up the namespace with symbols needed only by =run.c=.
