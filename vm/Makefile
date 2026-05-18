@@ -18,9 +18,9 @@ DIRS += cli
 DIRS += run
 DIRS += dasm
 DIRS += util
+DIRS += program
+DIRS += program-loader
 # DIRS += codegen
-# DIRS += program
-# DIRS += PROGRAm-loader
 # DIRS += testcases
 # DIRS += vm
 

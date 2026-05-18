@@ -6,8 +6,7 @@ struct vmprog_program *
 vmprog_init(void)
 {
     struct vmprog_program * program = NULL;
-    if (!(vmprog_malloc(sizeof(struct vmprog_program), "Program"))) return NULL;
-
+    if (!(program = vmprog_malloc(sizeof(struct vmprog_program), "Program"))) return NULL;
     *program = (struct vmprog_program){0};
     return program;
 }

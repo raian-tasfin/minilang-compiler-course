@@ -14,7 +14,6 @@ struct vmprog_program {
     union vm_instr_view * buff;
     int size;
     int cap;
-    bool err;
 };
 
 struct vmprog_program * vmprog_init(void);
