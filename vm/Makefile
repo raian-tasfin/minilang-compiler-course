@@ -14,7 +14,7 @@ CFLAGS = -std=c11
 # Directories #
 ###############
 DIRS =
-# DIRS += cli
+DIRS += cli
 # DIRS += codegen
 # DIRS += dasm
 # DIRS += program

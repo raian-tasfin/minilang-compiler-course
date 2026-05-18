@@ -1,8 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include "cli/cli.h"
 
-int main()
+int main(int argc, char ** argv)
 {
-    printf("test\n");
-
-    return 0;
+    if (!vmcli_main(argc, argv)) return EXIT_FAILURE;
+    return EXIT_SUCCESS;
 }
