@@ -17,6 +17,7 @@ DIRS =
 DIRS += cli
 DIRS += run
 DIRS += dasm
+DIRS += util
 # DIRS += codegen
 # DIRS += program
 # DIRS += PROGRAm-loader

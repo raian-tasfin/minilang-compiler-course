@@ -1,5 +1,5 @@
-#include "../run/cli.h"
-#include "../dasm/cli.h"
+#include "../run/run.h"
+#include "../dasm/dasm.h"
 #include "cli.h"
 #include <stdio.h>
 #include <string.h>
@@ -26,9 +26,9 @@ vmcli_main(int argc, char **argv)
         return false;
     }
     if (strcmp(argv[1], "run") == 0) {
-        return vmrun_cli_main(argc - 1, argv + 1);
+        return vmrun_main(argc - 1, argv + 1);
     } else if (strcmp(argv[1], "dasm") == 0) {
-        return vmdasm_cli_main(argc - 1, argv + 1);
+        return vmdasm_main(argc - 1, argv + 1);
         return true;
     }
     vmcli_help();
