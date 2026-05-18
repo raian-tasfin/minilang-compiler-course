@@ -16,8 +16,8 @@ CFLAGS = -std=c11
 DIRS =
 DIRS += cli
 DIRS += run
+DIRS += dasm
 # DIRS += codegen
-# DIRS += dasm
 # DIRS += program
 # DIRS += PROGRAm-loader
 # DIRS += testcases
