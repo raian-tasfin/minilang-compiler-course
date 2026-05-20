@@ -115,7 +115,7 @@ cg_new_register(struct cg_ctx * ctx, int lineno)
     if (!ctx) return -1;
     for (int r = 0; r < VM_REGISTER_CNT; r++) {
         if (ctx->sym_at_reg[r] == -1) return r;
-        if (*(int*)cg_darr_get(ctx->last_use, r) < lineno) return r;
+        if (*(int*)cg_darr_get(ctx->last_use, ctx->sym_at_reg[r]) < lineno) return r;
     }
     return -1;
 }
@@ -167,7 +167,7 @@ cg_generate_mov_rc(struct cg_ctx * ctx, struct cg_darr * program, int dest, int 
     union vm_instr_view val_part = { .raw = val };
 
     if (!cg_darr_push_back(program, &mov_part)) return false;
-    if (!cg_darr_push_back(program, &val)) return false;
+    if (!cg_darr_push_back(program, &val_part)) return false;
     return true;
 }
 
@@ -289,6 +289,8 @@ cg_generate_code(struct cg_ctx * ctx)
         }
 
     }
+    union vm_instr_view view = { .base.op = VM_EXIT };
+    cg_darr_push_back(program, &view);
     return program;
 
 error:

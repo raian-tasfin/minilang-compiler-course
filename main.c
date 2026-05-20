@@ -22,6 +22,7 @@ int main(int argc, char * const * argv)
     struct cg_ctx *  cg_ctx = NULL;
     struct cg_darr * program = NULL;
     int exit_status = EXIT_SUCCESS;
+    FILE * cg_out = NULL;
 
     /*********************
      * CLI Options Setup *
@@ -96,8 +97,27 @@ int main(int argc, char * const * argv)
     /*******************
      * Code Generation *
      *******************/
-    cg_ctx = cg_ctx_init(ir_block);
-    program = cg_generate_code(cg_ctx);
+    if (cliopts.cg.generate) {
+        /* Ensure options */
+        if (!cliopts.cg.outpath) {
+            exit_status = EXIT_FAILURE;
+            goto destruct;
+        }
+        /* Ensure context */
+        if (!(cg_ctx = cg_ctx_init(ir_block))) {
+            exit_status = EXIT_FAILURE;
+            goto destruct;
+        }
+        program = cg_generate_code(cg_ctx);
+        /* Ensure output file */
+        if (!(cg_out = fopen(cliopts.cg.outpath, "wb"))) {
+            exit_status = EXIT_FAILURE;
+            goto destruct;
+        }
+        fwrite(cg_buffer(program),
+               cg_darr_elem_size(program),
+               cg_darr_size(program), cg_out);
+    }
 
     /************
      * Destruct *
@@ -117,5 +137,6 @@ int main(int argc, char * const * argv)
     if (ir_ctx.rprt && ir_ctx.rprt != stdout) fclose(ir_ctx.rprt);
     cg_ctx_destroy(&cg_ctx);
     cg_darr_destroy(&program);
+    if (cg_out) fclose(cg_out);
     return exit_status;
 }

@@ -26,10 +26,16 @@ struct cli_ast_opts {
     bool err;
 };
 
+struct cli_cg_opts {
+    bool generate;
+    char * outpath;
+};
+
 struct cli_opts {
     struct cli_lxr_opts lxr;
     struct cli_ast_opts ast;
     struct cli_ir_opts ir;
+    struct cli_cg_opts cg;
     char * input_path;
     bool err;
 };

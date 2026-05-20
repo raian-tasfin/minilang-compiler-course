@@ -1,6 +1,8 @@
 #include "cli.h"
-#include <bits/getopt_core.h>
+#include <getopt.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 
 void
@@ -31,6 +33,7 @@ cli_get_opts(int argc, char * const *argv)
         {"lex-report", optional_argument, NULL, 'l' },
         {"ast-report", required_argument, NULL, 'a' },
         {"ir-report", optional_argument, NULL, 'i' },
+        {"compile", optional_argument, NULL, 'c' },
         {"help", optional_argument, NULL, 'h' },
         {0, 0, 0, 0}
     };
@@ -38,7 +41,7 @@ cli_get_opts(int argc, char * const *argv)
     int opt;
     int optindx = 0;
     while ((opt
-            = getopt_long(argc, argv, "l::a:i::h", opts, &optindx))
+            = getopt_long(argc, argv, "l::a:i::c:h", opts, &optindx))
            != -1) {
         switch (opt) {
         case 'l':
@@ -55,6 +58,10 @@ cli_get_opts(int argc, char * const *argv)
         case 'i':
             cliopts.ir.rprt = true;
             cliopts.ir.path = optarg;
+            break;
+        case 'c':
+            cliopts.cg.generate = true;
+            cliopts.cg.outpath = optarg;
             break;
         case 'h':
             cliopts.err = true;
@@ -94,6 +101,7 @@ cli_help(void)
             "                              to stdout.\n"
             "                              If FILE is provided after a colon, output\n"
             "                              is written there; otherwise, it goes to stdout.\n"
+            " -c, --compile=FILE           Generate object code and write to FILE."
             "  -h, --help                  Display this help and exit.\n"
             "\n"
             "Arguments:\n"

@@ -210,3 +210,27 @@ cg_darr_ensure_index(struct cg_darr *darr, int indx, void *fill_src)
     }
     return true;
 }
+
+
+
+uint8_t *
+cg_buffer(struct cg_darr * darr)
+{
+    if (!darr) {
+        fprintf(stderr, "[CG DARR]: NULL array provided for buffer.\n");
+        return NULL;
+    }
+    return darr->buff;
+}
+
+
+
+int
+cg_darr_elem_size(struct cg_darr * darr)
+{
+    if (!darr) {
+        fprintf(stderr, "[CG DARR]: NULL array provided for element size.\n");
+        return 0;
+    }
+    return darr->elem_size;
+}

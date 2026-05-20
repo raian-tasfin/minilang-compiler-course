@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifndef CG_DARR_H
 #define CG_DARR_H 1
@@ -14,6 +15,9 @@ bool cg_darr_set(struct cg_darr * darr, int indx, void * src);
 bool cg_darr_pop_back(struct cg_darr * darr, void * dst);
 int cg_darr_size(struct cg_darr * darr);
 bool cg_darr_ensure_index(struct cg_darr *darr, int indx, void *fill_src);
+uint8_t * cg_buffer(struct cg_darr * darr);
+int cg_darr_elem_size(struct cg_darr * darr);
+
 
 #endif
 // CG_DARR_H
