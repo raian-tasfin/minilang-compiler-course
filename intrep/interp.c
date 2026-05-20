@@ -242,7 +242,6 @@ ir_print(struct ir_ctx * ctx, struct ir_block * block)
         }
         case IR_PRINT: {
             char arg_str[64];
-            // Format the argument (variable name or temp name) to string
             ir_arg_to_str(block->stmts[i].prnt.arg, arg_str);
             ir_fprintf(ctx, "print %s\n", arg_str);
             break;
