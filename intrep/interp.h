@@ -37,7 +37,7 @@ struct ir_arg {
 };
 
 struct ir_stmt_const_assignment {
-    void * dest;
+    struct ir_sym * dest;
     int val;
 };
 
