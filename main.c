@@ -7,6 +7,8 @@
 #include "ast/ast.h"
 #include "symtable/symtable.h"
 #include "intrep/interp.h"
+#include "cg/cg.h"
+#include "darr/darr.h"
 
 
 int main(int argc, char * const * argv)
@@ -17,6 +19,8 @@ int main(int argc, char * const * argv)
     yyscan_t scanner = NULL;
     struct ast_node * ast_root = NULL;
     struct ast_ctx ast_ctx = {0};
+    struct cg_ctx *  cg_ctx = NULL;
+    struct cg_darr * program = NULL;
     int exit_status = EXIT_SUCCESS;
 
     /*********************
@@ -89,6 +93,12 @@ int main(int argc, char * const * argv)
     }
     ir_print(&ir_ctx, ir_block);
 
+    /*******************
+     * Code Generation *
+     *******************/
+    cg_ctx = cg_ctx_init(ir_block);
+    program = cg_generate_code(cg_ctx);
+
     /************
      * Destruct *
      ************/
@@ -105,5 +115,7 @@ int main(int argc, char * const * argv)
     if (ast_ctx.dot) fclose(ast_ctx.dot);
     if (ast_ctx.text) fclose(ast_ctx.text);
     if (ir_ctx.rprt && ir_ctx.rprt != stdout) fclose(ir_ctx.rprt);
+    cg_ctx_destroy(&cg_ctx);
+    cg_darr_destroy(&program);
     return exit_status;
 }

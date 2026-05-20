@@ -63,6 +63,23 @@ IR_C   = $(IR_DIR)/interp.c
 IR_H   = $(IR_DIR)/interp.h
 
 
+###################
+# Code Generation #
+###################
+CG_DIR = cg
+CG_C = $(CG_DIR)/cg.c
+CG_H = $(CG_DIR)/cg.h
+
+
+#################
+# Dynamic Array #
+#################
+DARR_DIR = darr
+DARR_C = $(DARR_DIR)/darr.c
+DARR_H = $(DARR_DIR)/darr.h
+
+
+
 ##########
 # C Code #
 ##########
@@ -78,6 +95,8 @@ SRCS_C += $(AST_KIND_C)
 SRCS_C += $(CLI_C)
 SRCS_C += $(SYM_C)
 SRCS_C += $(IR_C)
+SRCS_C += $(CG_C)
+SRCS_C += $(DARR_C)
 
 OBJS   = $(SRCS_C:%.c=%.o)
 
@@ -109,11 +128,15 @@ $(MAIN_C): $(AST_H)
 $(MAIN_C): $(CLI_H)
 $(MAIN_C): $(SYM_H)
 $(MAIN_C): $(IR_H)
+$(MAIN_C): $(CG_H)
+$(MAIN_C): $(DARR_H)
 
 $(LEXER_UTIL_H): $(PARSER_H) $(LEXER_H)
 $(CLI_C): $(CLI_H)
 $(SYM_C): $(SYM_H)
 $(IR_C): $(IR_H)
+$(CG_C): $(CG_H)
+$(DARR_C): $(DARR_H)
 
 
 clean:
