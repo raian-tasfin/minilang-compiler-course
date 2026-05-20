@@ -88,6 +88,17 @@ ir_block_generate_rec(struct ast_node * node,
             .sym = dest,
         };
     }
+    case AST_PRNT: {
+        struct ir_arg print_arg = ir_block_generate_rec(node->child, var_id, block);
+        struct ir_stmt stmt = {
+            .type = IR_PRINT,
+            .prnt = {
+                .arg = print_arg
+            }
+        };
+        ir_block_push(stmt, block);
+        return (struct ir_arg){0};
+    }
     case AST_ADD:
     case AST_SUB:
     case AST_MUL:
@@ -205,7 +216,7 @@ ir_print(struct ir_ctx * ctx, struct ir_block * block)
             ir_fprintf(ctx, "%5s = %d\n", dest, val);
             break;
         };
-        case IR_BINOP_ASSIGNMENT:
+        case IR_BINOP_ASSIGNMENT: {
             switch (block->stmts[i].binop_asn.op) {
             case IR_ADD:
             case IR_SUB:
@@ -224,8 +235,18 @@ ir_print(struct ir_ctx * ctx, struct ir_block * block)
                            arg1,
                            ir_opch(block->stmts[i].binop_asn.op),
                            arg2);
+                break;
             }
             }
+            break;
+        }
+        case IR_PRINT: {
+            char arg_str[64];
+            // Format the argument (variable name or temp name) to string
+            ir_arg_to_str(block->stmts[i].prnt.arg, arg_str);
+            ir_fprintf(ctx, "print %s\n", arg_str);
+            break;
+        }
         }
     }
 }

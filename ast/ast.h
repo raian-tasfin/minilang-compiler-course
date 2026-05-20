@@ -41,6 +41,9 @@ ast_ctr_binop(enum ast_kind op_type,
               struct ast_node * left,
               struct ast_node * right);
 
+struct ast_node *
+ast_ctr_prnt(struct ast_node * subexpr);
+
 void ast_print_postorder(struct ast_node * root, FILE * strm);
 void ast_print_texttree(struct ast_node * root, FILE * strm);
 void ast_print_dot(struct ast_node * root, FILE * strm);

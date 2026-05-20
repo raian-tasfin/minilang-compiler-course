@@ -138,6 +138,7 @@ lxr_process_proc(int token_type,
     case MOD:  lxr_print_token(MOD, yylval, ctx); return MOD;
     case LPRN: lxr_print_token(LPRN, yylval, ctx); return LPRN;
     case RPRN: lxr_print_token(RPRN, yylval, ctx); return RPRN;
+    case PRNT: lxr_print_token(PRNT, yylval, ctx); return PRNT;
 
     case NEWLINE:
         lxr_print_token(NEWLINE, yylval, ctx);

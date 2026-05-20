@@ -43,6 +43,7 @@ yyerror(YYLTYPE * loc,
 %token MOD
 %token LPRN
 %token RPRN
+%token PRNT
 
 
 /*******************************
@@ -55,7 +56,7 @@ yyerror(YYLTYPE * loc,
 /*******************************
  * Nonterminal Semantic Types  *
  *******************************/
-%type <struct ast_node *> expr line program
+%type <struct ast_node *> expr line program stmt
 
 %%
 
@@ -66,9 +67,15 @@ program:
 
 line:
 NEWLINE          { $$ = NULL; }
-| expr NEWLINE   { $$ = $1; *ast_root = $1; }
-| expr           { $$ = $1;   }
+| stmt NEWLINE   { $$ = $1; *ast_root = $1; }
+| stmt           { $$ = $1;   }
 ;
+
+stmt:
+  expr                 { $$ = $1; }
+| PRNT LPRN expr RPRN  { $$ = ast_ctr_prnt($3); }
+;
+
 
 expr:
 INTEGER           { $$ = ast_ctr_integer($1); }

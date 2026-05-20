@@ -2,6 +2,9 @@
 #include "ast_kind.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 
 struct ast_ctx
 ast_ctx_init(struct cli_ast_opts opts)
@@ -33,6 +36,7 @@ ast_ctx_init(struct cli_ast_opts opts)
 }
 
 
+
 struct ast_node *
 ast_ctr_integer(int val)
 {
@@ -50,6 +54,7 @@ ast_ctr_integer(int val)
     return node;
 }
 
+
 struct ast_node *
 ast_ctr_binop(enum ast_kind op_type,
               struct ast_node * left,
@@ -64,6 +69,22 @@ ast_ctr_binop(enum ast_kind op_type,
         .type = op_type,
         .left = left,
         .right = right
+    };
+    return node;
+}
+
+
+struct ast_node *
+ast_ctr_prnt(struct ast_node * subexpr)
+{
+    struct ast_node * node = malloc(sizeof(struct ast_node));
+    if (!node) {
+        fprintf(stderr, "Failed allocating node.\n");
+        return NULL;
+    }
+    node[0] = (struct ast_node) {
+        .type = AST_PRNT,
+        .child = subexpr
     };
     return node;
 }
@@ -98,26 +119,34 @@ ast_print_texttree_r(struct ast_node *root,
         fprintf(strm, "%s\n", astk_tokstr(root->type));
         break;
     }
+
+    // prefix indentation
+    const char * cont = is_last ? TT_BLANK : TT_VERT;
+    int clen = (int) strlen(cont);
+    if (plen + clen < TT_MAX_DEPTH * TT_PREFIX_STEP) {
+        memcpy(prefix + plen, cont, clen);
+        prefix[plen + clen] = '\0';
+    }
+
     switch (root->type) {
     case AST_ADD:
     case AST_SUB:
     case AST_MUL:
     case AST_DIV:
     case AST_MOD: {
-        const char * cont = is_last ? TT_BLANK : TT_VERT;
-        int clen = (int) strlen(cont);
-        if (plen + clen < TT_MAX_DEPTH * TT_PREFIX_STEP) {
-            memcpy(prefix + plen, cont, clen);
-            prefix[plen + clen] = '\0';
-        }
         ast_print_texttree_r(root->left,  strm, prefix, plen + clen, 0);
         ast_print_texttree_r(root->right, strm, prefix, plen + clen, 1);
-        prefix[plen] = '\0';
+        break;
+    }
+    case AST_PRNT: {
+        // terminal unary
+        ast_print_texttree_r(root->child, strm, prefix, plen + clen, 1);
         break;
     }
     default:
         break;
     }
+    prefix[plen] = '\0';
 }
 
 void
@@ -164,6 +193,9 @@ ast_to_dot(struct ast_node * root,
         ast_to_dot(root->left, strm, my_id, dot_id);
         ast_to_dot(root->right, strm, my_id, dot_id);
         break;
+    case AST_PRNT:
+        ast_to_dot(root->child, strm, my_id, dot_id);
+        break;
     default:
         break;
     }
@@ -185,15 +217,14 @@ void ast_print_dot(struct ast_node * root, FILE * strm)
 void
 ast_delete(struct ast_node ** root)
 {
-    if (!root) return;
-    if (!*root) return;
+    if (!root || !*root) return;
 
     if (root[0]->child) ast_delete(&root[0]->child);
-    if (root[0]->left) ast_delete(&root[0]->left);
+    if (root[0]->left)  ast_delete(&root[0]->left);
     if (root[0]->right) ast_delete(&root[0]->right);
 
     free(root[0]);
-    root[0] = NULL;
+    *root = NULL;
 }
 
 
@@ -202,14 +233,17 @@ ast_cnt_nodes(struct ast_node * root)
 {
     if (!root) return 0;
     switch (root->type) {
-    case AST_INTEGER:   return 1;
+    case AST_INTEGER:
+        return 1;
     case AST_ADD:
     case AST_SUB:
     case AST_MUL:
     case AST_DIV:
-    case AST_MOD: return 1 + (ast_cnt_nodes(root->left)
-                              + ast_cnt_nodes(root->right));
+    case AST_MOD:
+        return 1 + ast_cnt_nodes(root->left) + ast_cnt_nodes(root->right);
+    case AST_PRNT:
+        return 1 + ast_cnt_nodes(root->child);
+    default:
+        return 0;
     }
-
-    return 0;
 }

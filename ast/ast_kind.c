@@ -11,6 +11,7 @@ astk_from_tok(int token_type)
     case MUL: return AST_MUL;
     case DIV: return AST_DIV;
     case MOD: return AST_MOD;
+    case PRNT: return AST_PRNT;
     case INTEGER: return AST_INTEGER;
     default: {
         fprintf(stderr,
@@ -30,6 +31,7 @@ astk_tokstr(enum ast_kind type)
     case AST_MUL: return "AST_MUL";
     case AST_DIV: return "AST_DIV";
     case AST_MOD: return "AST_MOD";
+    case AST_PRNT: return "AST_PRNT";
     case AST_ERR: return "AST_ERR";
     case AST_INTEGER: return "AST_INTEGER";
     };

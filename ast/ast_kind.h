@@ -11,7 +11,8 @@ enum ast_kind {
     AST_DIV,
     AST_MOD,
     AST_ERR,
-    AST_INTEGER
+    AST_PRNT,
+    AST_INTEGER,
 };
 
 

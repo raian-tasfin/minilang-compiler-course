@@ -83,7 +83,6 @@ int main(int argc, char * const * argv)
     *******************************/
     struct ir_block * ir_block = ir_block_generate(ast_root);
 
-
     /****************
      * IR Reporting *
      ****************/
