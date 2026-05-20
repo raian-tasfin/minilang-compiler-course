@@ -6,12 +6,20 @@
 
 enum ir_type {
     IR_INTEGER,
-    IR_SYM,
+};
+
+enum ir_stmt_type {
+    IR_CONST_ASSIGNMENT,
+    IR_BINOP_ASSIGNMENT,
+    IR_PRINT,
+};
+
+enum ir_binop {
     IR_ADD,
     IR_SUB,
     IR_MUL,
     IR_DIV,
-    IR_MOD
+    IR_MOD,
 };
 
 struct ir_sym {
@@ -25,17 +33,32 @@ struct ir_sym {
 
 struct ir_arg {
     enum ir_type type;
-    union {
-        struct ir_sym * sym;
-        int INTEGER;
-    };
+    struct ir_sym * sym;
 };
 
-struct ir_stmt {
-    enum ir_type type;
+struct ir_stmt_const_assignment {
+    void * dest;
+    int val;
+};
+
+struct ir_stmt_binop_assignment {
+    enum ir_binop op;
     struct ir_sym * dst;
     struct ir_arg arg1;
     struct ir_arg arg2;
+};
+
+struct ir_stmt_prnt {
+    struct ir_arg arg;
+};
+
+struct ir_stmt {
+    enum ir_stmt_type type;
+    union {
+        struct ir_stmt_const_assignment const_asn;
+        struct ir_stmt_binop_assignment binop_asn;
+        struct ir_stmt_prnt prnt;
+    };
 };
 
 struct ir_block {

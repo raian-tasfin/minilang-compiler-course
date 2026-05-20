@@ -23,17 +23,19 @@ ir_sym_new(char * name, enum ir_type type, int * var_id)
 }
 
 struct ir_stmt *
-ir_stmt_new(enum ir_type type,
-            struct ir_sym * dst,
-            struct ir_arg arg1,
-            struct ir_arg arg2)
+ir_stmt_binop_new(enum ir_binop op,
+                  struct ir_sym * dst,
+                  struct ir_arg arg1,
+                  struct ir_arg arg2)
 {
     struct ir_stmt * new = malloc(sizeof(struct ir_stmt));
     *new = (struct ir_stmt) {
-        .type = type,
-        .dst = dst,
-        .arg1 = arg1,
-        .arg2 = arg2
+        .type = IR_BINOP_ASSIGNMENT,
+        .binop_asn = {
+            .dst = dst,
+            .arg1 = arg1,
+            .arg2 = arg2,
+        },
     };
     return new;
 }
@@ -50,11 +52,10 @@ ir_block_push(struct ir_stmt stmt, struct ir_block * block)
     block->stmts[block->size++] = stmt;
 }
 
-enum ir_type
-ir_astk_to_irt(enum ast_kind type)
+enum ir_binop
+ir_astk_to_ir_binop(enum ast_kind type)
 {
     switch (type) {
-    case AST_INTEGER: return IR_INTEGER;
     case AST_ADD: return IR_ADD;
     case AST_SUB: return IR_SUB;
     case AST_MUL: return IR_MUL;
@@ -63,6 +64,9 @@ ir_astk_to_irt(enum ast_kind type)
     };
 }
 
+
+
+
 struct ir_arg
 ir_block_generate_rec(struct ast_node * node,
                       int * var_id,
@@ -70,9 +74,18 @@ ir_block_generate_rec(struct ast_node * node,
 {
     switch (node->type) {
     case AST_INTEGER: {
+        struct ir_sym * dest = ir_sym_new(NULL, IR_INTEGER, var_id);
+        struct ir_stmt stmt = {
+            .type = IR_CONST_ASSIGNMENT,
+            .const_asn = {
+                .dest = dest,
+                .val = node->value.INTEGER,
+            }
+        };
+        ir_block_push(stmt, block);
         return (struct ir_arg) {
             .type = IR_INTEGER,
-            .INTEGER = node->value.INTEGER,
+            .sym = dest,
         };
     }
     case AST_ADD:
@@ -80,21 +93,22 @@ ir_block_generate_rec(struct ast_node * node,
     case AST_MUL:
     case AST_DIV:
     case AST_MOD: {
-        struct ir_sym * tmp = ir_sym_new(NULL, IR_SYM, var_id);
-        struct ir_arg arg1 =
-            ir_block_generate_rec(node->left, var_id, block);
-        struct ir_arg arg2 =
-            ir_block_generate_rec(node->right, var_id, block);
+        struct ir_sym * dest = ir_sym_new(NULL, IR_INTEGER, var_id);
+        struct ir_arg arg1 = ir_block_generate_rec(node->left, var_id, block);
+        struct ir_arg arg2 = ir_block_generate_rec(node->right, var_id, block);
         struct ir_stmt stmt = {
-            .type = ir_astk_to_irt(node->type),
-            .dst = tmp,
-            .arg1 = arg1,
-            .arg2 = arg2
+            .type = IR_BINOP_ASSIGNMENT,
+            .binop_asn = {
+                .op = ir_astk_to_ir_binop(node->type),
+                .dst = dest,
+                .arg1 = arg1,
+                .arg2 = arg2
+            }
         };
         ir_block_push(stmt, block);
         return (struct ir_arg) {
-            .sym = tmp,
-            .type = IR_SYM
+            .sym = dest,
+            .type = IR_INTEGER,
         };
     }
     }
@@ -162,15 +176,11 @@ ir_sym_to_str(struct ir_sym * sym, char * dest)
 void
 ir_arg_to_str(struct ir_arg arg, char * dest)
 {
-    if (arg.type == IR_INTEGER) {
-        sprintf(dest, "%d", arg.INTEGER);
-        return;
-    }
     ir_sym_to_str(arg.sym, dest);
 }
 
 char
-ir_opch(enum ir_type type)
+ir_opch(enum ir_binop type)
 {
     switch (type) {
     case IR_ADD: return '+';
@@ -188,24 +198,34 @@ ir_print(struct ir_ctx * ctx, struct ir_block * block)
     if (!ctx || !ctx->rprt || ctx->err || !block) return;
     for (int i = 0; i < block->size; i++) {
         switch (block->stmts[i].type) {
-        case IR_ADD:
-        case IR_SUB:
-        case IR_MUL:
-        case IR_DIV:
-        case IR_MOD: {
+        case IR_CONST_ASSIGNMENT: {
             char dest[64];
-            char arg1[64];
-            char arg2[64];
-            ir_sym_to_str(block->stmts[i].dst, dest);
-            ir_arg_to_str(block->stmts[i].arg1, arg1);
-            ir_arg_to_str(block->stmts[i].arg2, arg2);
-            ir_fprintf(ctx,
-                       "%5s = %5s %c %5s\n",
-                       dest,
-                       arg1,
-                       ir_opch(block->stmts[i].type),
-                       arg2);
-        }
+            ir_sym_to_str(block->stmts[i].const_asn.dest, dest);
+            int val = block->stmts[i].const_asn.val;
+            ir_fprintf(ctx, "%5s = %d\n", dest, val);
+            break;
+        };
+        case IR_BINOP_ASSIGNMENT:
+            switch (block->stmts[i].binop_asn.op) {
+            case IR_ADD:
+            case IR_SUB:
+            case IR_MUL:
+            case IR_DIV:
+            case IR_MOD: {
+                char dest[64];
+                char arg1[64];
+                char arg2[64];
+                ir_sym_to_str(block->stmts[i].binop_asn.dst, dest);
+                ir_arg_to_str(block->stmts[i].binop_asn.arg1, arg1);
+                ir_arg_to_str(block->stmts[i].binop_asn.arg2, arg2);
+                ir_fprintf(ctx,
+                           "%5s = %5s %c %5s\n",
+                           dest,
+                           arg1,
+                           ir_opch(block->stmts[i].binop_asn.op),
+                           arg2);
+            }
+            }
         }
     }
 }
