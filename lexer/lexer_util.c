@@ -27,6 +27,7 @@ struct lxr_ctx
 lxr_ctx_init(struct cli_opts * cliopts)
 {
     struct lxr_ctx ctx = { 0 };
+    ctx.open_parens = 0;
     if (!cliopts) return ctx;
 
     /****************
@@ -34,9 +35,7 @@ lxr_ctx_init(struct cli_opts * cliopts)
      ****************/
     ctx.instream = fopen(cliopts->input_path, "r");
     if (!ctx.instream) {
-        fprintf(stderr,
-                "Could not open file '%s'\n",
-                cliopts->input_path);
+        fprintf(stderr, "Could not open file '%s'\n", cliopts->input_path);
         ctx.err = true;
         return ctx;
     }
@@ -48,9 +47,7 @@ lxr_ctx_init(struct cli_opts * cliopts)
     if (!cliopts->lxr.path) ctx.rprt = stdout;
     else ctx.rprt = fopen(cliopts->lxr.path, "w");
     if (!ctx.rprt) {
-        fprintf(stderr,
-                "Could not open file '%s'\n",
-                cliopts->lxr.path);
+        fprintf(stderr, "Could not open file '%s'\n", cliopts->lxr.path);
         ctx.err = true;
     }
 
@@ -74,6 +71,7 @@ lxr_toktostr(int token_type)
     case NEWLINE:     return "NEWLINE";
     case RPRN:        return "RPRN";
     case SUB:         return "SUB";
+    case PRNT:        return "PRNT";
     default:          return "UNIDENTIFIED";
     }
 }
@@ -118,10 +116,11 @@ lxr_process_proc(int token_type,
 {
     char *yytext = yyget_text(yyscanner);
     lxr_updt_loc(yylloc, yyscanner);
+
     switch (token_type) {
         /* Ignore cases */
-    case LEX_BLNK: // lxr_print_token(LEX_BLNK, yylval, ctx);
-    case LEX_CONT: // lxr_print_token(LEX_CONT, yylval, ctx);
+    case LEX_BLNK:
+    case LEX_CONT:
         return LEX_IGNR;
 
         /* Cases with Semantic Value */
@@ -136,24 +135,32 @@ lxr_process_proc(int token_type,
     case MUL:  lxr_print_token(MUL, yylval, ctx); return MUL;
     case DIV:  lxr_print_token(DIV, yylval, ctx); return DIV;
     case MOD:  lxr_print_token(MOD, yylval, ctx); return MOD;
-    case LPRN: lxr_print_token(LPRN, yylval, ctx); return LPRN;
-    case RPRN: lxr_print_token(RPRN, yylval, ctx); return RPRN;
     case PRNT: lxr_print_token(PRNT, yylval, ctx); return PRNT;
 
+    case LPRN:
+        if (ctx) ctx->open_parens++;
+        lxr_print_token(LPRN, yylval, ctx);
+        return LPRN;
+
+    case RPRN:
+        if (ctx && ctx->open_parens > 0) ctx->open_parens--;
+        lxr_print_token(RPRN, yylval, ctx);
+        return RPRN;
+
     case NEWLINE:
+        /* Structural newline (open expression) */
+        if (ctx && ctx->open_parens > 0) return LEX_IGNR;
+
+        /* Actual Newline */
         lxr_print_token(NEWLINE, yylval, ctx);
         return token_type;
 
         /* Error */
     case LEX_ERR:
-        /* lxr_print_token(LEX_ERR, yylval, ctx); */
         fprintf(stderr,
                 "[lexing error]: Unexpected %s at %d:%d-%d:%d\n",
-                yytext,
-                yylloc->first_line,
-                yylloc->first_column,
-                yylloc->last_line,
-                yylloc->last_column);
+                yytext, yylloc->first_line, yylloc->first_column,
+                yylloc->last_line, yylloc->last_column);
         return LEX_ERR;
     }
 

@@ -28,6 +28,7 @@ typedef void *yyscan_t;
 struct lxr_ctx {
     FILE * rprt;
     FILE * instream;
+    int open_parens;
     bool err;
 };
 
