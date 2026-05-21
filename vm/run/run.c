@@ -3,7 +3,6 @@
 #include "utils.h"
 #include "../vm-core/vm-core.h"
 #include "../program-loader/program-loader.h"
-#include "../program/program.h"
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -11,7 +10,7 @@ bool
 vmrun_main(int argc, char **argv)
 {
     struct vmrun_cli_opts opts = {.err = true};
-    struct vmprog_program * program = NULL;
+    struct darr * program = NULL;
     FILE * outstream = NULL;
 
     /* Parse options */
@@ -32,12 +31,12 @@ vmrun_main(int argc, char **argv)
     if (!vm_run(vm)) goto error;
 
     /* Exit */
-    vmprog_destroy(&program);
+    darr_destroy(&program);
     vm_destroy(vm);
     return true;
 
 error:
-    vmprog_destroy(&program);
+    darr_destroy(&program);
     vm_destroy(vm);
     return false;
 }

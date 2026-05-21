@@ -1,5 +1,7 @@
 #include "vm-core.h"
+#include "vm-definitions.h"
 #include "utils.h"
+#include "../darr/darr.h"
 
 
 /*********************
@@ -18,7 +20,7 @@ vmcr_fetch(struct vm * vm)
 {
     union vm_instr_view view = { .base.op = VM_ERR };
     if (!vmcr_ensure_vm(vm)) return view;
-    view = vm->state.program->buff[vm->state.ip++];
+    view = *(union vm_instr_view*)(darr_get(vm->state.program, vm->state.ip++));
     return view;
 }
 
@@ -45,7 +47,7 @@ vm_exec_mov(struct vm * vm, union vm_instr_view view)
         vmcr_err("%s", "Only 'MOV REG CONST' is implemented.");
         return false;
     }
-    int32_t val = (int32_t)(vm->state.program->buff[vm->state.ip++].raw);
+    int32_t val = (*(union vm_instr_view*)darr_get(vm->state.program, vm->state.ip++)).raw;
     vm->state.r[view.mov.dest] = val;
     return true;
 }
@@ -98,7 +100,7 @@ vm_op_to_str(enum vm_op op)
 
 
 struct vm *
-vm_init(char * print_path, struct vmprog_program * program)
+vm_init(char * print_path, struct darr * program)
 {
     if (!vmcr_ensure_ptr(program)) return NULL;
     struct vm * vm = NULL;

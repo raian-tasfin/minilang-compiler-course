@@ -1,6 +1,7 @@
 #include "cg.h"
 #include "../darr/darr.h"
 #include "../vm/vm-core/vm-core.h"
+#include "../vm/vm-core/vm-definitions.h"
 #include "../intrep/interp.h"
 #include <assert.h>
 #include <stdalign.h>

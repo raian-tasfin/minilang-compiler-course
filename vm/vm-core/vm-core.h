@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include "../program/program.h"
 
 
 #ifndef VM_CORE_H
@@ -23,7 +22,7 @@ struct vm {
 
     /* Machine state */
     struct {
-        struct vmprog_program * program;
+        struct darr * program;
         int32_t r[VM_REGISTER_CNT];
         uint32_t ip;
     } state;
@@ -40,7 +39,7 @@ struct vm {
  *                 this library. The provider is responsible for that.
  */
 struct vm *
-vm_init(char * print_path, struct vmprog_program * program);
+vm_init(char * print_path, struct darr * program);
 
 
 bool
