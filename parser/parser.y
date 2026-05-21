@@ -23,6 +23,7 @@ yyerror(YYLTYPE * loc,
 %parse-param { void * scanner }
 %parse-param { struct ast_node ** ast_root }
 
+
 /************************
  * Lexer-Control Tokens *
  ************************/
@@ -31,6 +32,7 @@ yyerror(YYLTYPE * loc,
 %token LEX_CONT
 %token NEWLINE
 %token LEX_ERR
+
 
 /**********
  * Tokens *
@@ -58,6 +60,10 @@ yyerror(YYLTYPE * loc,
  *******************************/
 %type <struct ast_node *> expr line program stmt
 
+
+/***********
+ * Grammar *
+ ***********/
 %%
 
 program:

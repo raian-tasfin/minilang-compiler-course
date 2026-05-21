@@ -394,7 +394,7 @@ int main(int argc, char * const * argv)
     struct ast_node * ast_root = NULL;
     struct ast_ctx ast_ctx = {0};
     struct cg_ctx *  cg_ctx = NULL;
-    struct cg_darr * program = NULL;
+    struct darr * program = NULL;
     int exit_status = EXIT_SUCCESS;
     FILE * cg_out = NULL;
 
@@ -489,8 +489,8 @@ int main(int argc, char * const * argv)
             goto destruct;
         }
         fwrite(cg_buffer(program),
-               cg_darr_elem_size(program),
-               cg_darr_size(program), cg_out);
+               darr_elem_size(program),
+               darr_size(program), cg_out);
     }
 
     /************
@@ -510,7 +510,7 @@ int main(int argc, char * const * argv)
     if (ast_ctx.text) fclose(ast_ctx.text);
     if (ir_ctx.rprt && ir_ctx.rprt != stdout) fclose(ir_ctx.rprt);
     cg_ctx_destroy(&cg_ctx);
-    cg_darr_destroy(&program);
+    darr_destroy(&program);
     if (cg_out) fclose(cg_out);
     return exit_status;
 }
@@ -965,19 +965,19 @@ darr.h/         0           0     0     644     779       `
 #ifndef CG_DARR_H
 #define CG_DARR_H 1
 
-struct cg_darr;
-struct cg_darr * cg_darr_init(int elem_size);
-void cg_darr_destroy(struct cg_darr ** darr);
-bool cg_darr_reserve(struct cg_darr * darr, int cap);
-bool cg_darr_resize(struct cg_darr * darr, int new_size, void * fill_src);
-bool cg_darr_push_back(struct cg_darr * darr, void * src);
-void * cg_darr_get(struct cg_darr * darr, int indx);
-bool cg_darr_set(struct cg_darr * darr, int indx, void * src);
-bool cg_darr_pop_back(struct cg_darr * darr, void * dst);
-int cg_darr_size(struct cg_darr * darr);
-bool cg_darr_ensure_index(struct cg_darr *darr, int indx, void *fill_src);
-uint8_t * cg_buffer(struct cg_darr * darr);
-int cg_darr_elem_size(struct cg_darr * darr);
+struct darr;
+struct darr * darr_init(int elem_size);
+void darr_destroy(struct darr ** darr);
+bool darr_reserve(struct darr * darr, int cap);
+bool darr_resize(struct darr * darr, int new_size, void * fill_src);
+bool darr_push_back(struct darr * darr, void * src);
+void * darr_get(struct darr * darr, int indx);
+bool darr_set(struct darr * darr, int indx, void * src);
+bool darr_pop_back(struct darr * darr, void * dst);
+int darr_size(struct darr * darr);
+bool darr_ensure_index(struct darr *darr, int indx, void *fill_src);
+uint8_t * cg_buffer(struct darr * darr);
+int darr_elem_size(struct darr * darr);
 
 
 #endif
@@ -990,34 +990,34 @@ darr.c/         0           0     0     644     5592      `
 #include <string.h>
 #include <stdbool.h>
 
-struct cg_darr {
+struct darr {
     int   size;
     int   cap;
     int   elem_size;
     void *buff;
 };
 
-struct cg_darr *
-cg_darr_init(int elem_size)
+struct darr *
+darr_init(int elem_size)
 {
     if (elem_size <= 0) {
         fprintf(stderr, "[CG DARR]: Element size must be positive.\n");
         return NULL;
     }
 
-    struct cg_darr *darr = malloc(sizeof(*darr));
+    struct darr *darr = malloc(sizeof(*darr));
     if (!darr) {
         fprintf(stderr, "[CG DARR]: Failed allocating dynamic array.\n");
         return NULL;
     }
 
-    *darr = (struct cg_darr){ .elem_size = elem_size };
+    *darr = (struct darr){ .elem_size = elem_size };
     return darr;
 }
 
 
 void
-cg_darr_destroy(struct cg_darr **darr)
+darr_destroy(struct darr **darr)
 {
     if (!darr || !*darr) return;
     free((*darr)->buff);
@@ -1027,7 +1027,7 @@ cg_darr_destroy(struct cg_darr **darr)
 
 
 bool
-cg_darr_reserve(struct cg_darr *darr, int cap)
+darr_reserve(struct darr *darr, int cap)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to reserve.\n");
@@ -1048,7 +1048,7 @@ cg_darr_reserve(struct cg_darr *darr, int cap)
 
 
 bool
-cg_darr_resize(struct cg_darr *darr, int new_size, void *fill_src)
+darr_resize(struct darr *darr, int new_size, void *fill_src)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to resize.\n");
@@ -1062,7 +1062,7 @@ cg_darr_resize(struct cg_darr *darr, int new_size, void *fill_src)
     if (new_size > darr->cap) {
         int new_cap = darr->cap ? darr->cap * 2 : 8;
         if (new_cap < new_size) new_cap = new_size;
-        if (!cg_darr_reserve(darr, new_cap)) return false;
+        if (!darr_reserve(darr, new_cap)) return false;
     }
 
     if (new_size > darr->size) {
@@ -1084,7 +1084,7 @@ cg_darr_resize(struct cg_darr *darr, int new_size, void *fill_src)
 }
 
 bool
-cg_darr_push_back(struct cg_darr *darr, void *src)
+darr_push_back(struct darr *darr, void *src)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to push_back.\n");
@@ -1094,7 +1094,7 @@ cg_darr_push_back(struct cg_darr *darr, void *src)
         fprintf(stderr, "[CG DARR]: NULL src provided to push_back.\n");
         return false;
     }
-    if (!cg_darr_resize(darr, darr->size + 1, NULL)) {
+    if (!darr_resize(darr, darr->size + 1, NULL)) {
         fprintf(stderr, "[CG DARR]: Failed to grow array in push_back.\n");
         return false;
     }
@@ -1106,7 +1106,7 @@ cg_darr_push_back(struct cg_darr *darr, void *src)
 }
 
 void *
-cg_darr_get(struct cg_darr *darr, int indx)
+darr_get(struct darr *darr, int indx)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to get.\n");
@@ -1124,7 +1124,7 @@ cg_darr_get(struct cg_darr *darr, int indx)
 }
 
 bool
-cg_darr_set(struct cg_darr *darr, int indx, void *src)
+darr_set(struct darr *darr, int indx, void *src)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to set.\n");
@@ -1148,7 +1148,7 @@ cg_darr_set(struct cg_darr *darr, int indx, void *src)
 
 
 bool
-cg_darr_pop_back(struct cg_darr *darr, void *dst)
+darr_pop_back(struct darr *darr, void *dst)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to pop_back.\n");
@@ -1168,7 +1168,7 @@ cg_darr_pop_back(struct cg_darr *darr, void *dst)
 
 
 int
-cg_darr_size(struct cg_darr * darr)
+darr_size(struct darr * darr)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: Size requested for NULL dynamic array.\n");
@@ -1178,7 +1178,7 @@ cg_darr_size(struct cg_darr * darr)
 }
 
 bool
-cg_darr_ensure_index(struct cg_darr *darr, int indx, void *fill_src)
+darr_ensure_index(struct darr *darr, int indx, void *fill_src)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to ensure_index.\n");
@@ -1190,7 +1190,7 @@ cg_darr_ensure_index(struct cg_darr *darr, int indx, void *fill_src)
     }
     if (indx < darr->size) return true;
     int target_size = indx + 1;
-    if (!cg_darr_resize(darr, target_size, fill_src)) {
+    if (!darr_resize(darr, target_size, fill_src)) {
         fprintf(stderr, "[CG DARR]: Failed to resize array in ensure_index.\n");
         return false;
     }
@@ -1200,7 +1200,7 @@ cg_darr_ensure_index(struct cg_darr *darr, int indx, void *fill_src)
 
 
 uint8_t *
-cg_buffer(struct cg_darr * darr)
+cg_buffer(struct darr * darr)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided for buffer.\n");
@@ -1212,7 +1212,7 @@ cg_buffer(struct cg_darr * darr)
 
 
 int
-cg_darr_elem_size(struct cg_darr * darr)
+darr_elem_size(struct darr * darr)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided for element size.\n");
@@ -3692,8 +3692,8 @@ struct cg_ctx;
 struct cg_ctx * cg_ctx_init(struct ir_block * block);
 void cg_ctx_destroy(struct cg_ctx ** ctx);
 
-// cg_darr of type vm_instr_view
-struct cg_darr * cg_generate_code(struct cg_ctx * ctx);
+// darr of type vm_instr_view
+struct darr * cg_generate_code(struct cg_ctx * ctx);
 
 
 #endif
@@ -3714,8 +3714,8 @@ cg.c/           0           0     0     644     7944      `
  * Structures *
  **************/
 struct cg_ctx {
-    struct cg_darr * last_use;        // line number. int
-    struct cg_darr * reg_of_sym;      // register int. (need -1)
+    struct darr * last_use;        // line number. int
+    struct darr * reg_of_sym;      // register int. (need -1)
     int sym_at_reg[VM_REGISTER_CNT];
     struct ir_block * block;
 };
@@ -3736,10 +3736,10 @@ cg_ir_to_vm_op(enum ir_type type)
     }
 }
 
-static struct cg_darr *
+static struct darr *
 cg_get_last_use(struct ir_block * block)
 {
-    struct cg_darr * darr = NULL;
+    struct darr * darr = NULL;
 
     int none = -1;
 
@@ -3747,7 +3747,7 @@ cg_get_last_use(struct ir_block * block)
         fprintf(stderr, "[CG Last Use]: Empty block provided. No last use calculated.\n");
         goto error;
     }
-    if (!(darr = cg_darr_init(sizeof(int)))) {
+    if (!(darr = darr_init(sizeof(int)))) {
         fprintf(stderr, "[CG Last Use]: Error initializing last use array.\n");
         goto error;
     }
@@ -3761,14 +3761,14 @@ cg_get_last_use(struct ir_block * block)
         case IR_DIV:
         case IR_MOD:
             if (stmt.arg1.type == IR_SYM) {
-                if (!cg_darr_ensure_index(darr, stmt.arg1.sym->id, &none)) {
+                if (!darr_ensure_index(darr, stmt.arg1.sym->id, &none)) {
                     fprintf(stderr,
                             "[CG Last Use]: Error allocating symbol index %d for arg1 in line %d\n",
                             stmt.arg1.sym->id,
                             lineno);
                     goto error;
                 }
-                if (!cg_darr_set(darr, stmt.arg1.sym->id, &lineno)) {
+                if (!darr_set(darr, stmt.arg1.sym->id, &lineno)) {
                     fprintf(stderr,
                             "[CG Last Use]: Error setting last use of index %d for arg1 to line %d\n",
                             stmt.arg1.sym->id,
@@ -3777,14 +3777,14 @@ cg_get_last_use(struct ir_block * block)
                 }
             }
             if (stmt.arg2.type == IR_SYM) {
-                if (!cg_darr_ensure_index(darr, stmt.arg2.sym->id, &none)) {
+                if (!darr_ensure_index(darr, stmt.arg2.sym->id, &none)) {
                     fprintf(stderr,
                             "[CG Last Use]: Error allocating symbol index %d for arg2 in line %d\n",
                             stmt.arg2.sym->id,
                             lineno);
                     goto error;
                 }
-                if (!cg_darr_set(darr, stmt.arg2.sym->id, &lineno)) {
+                if (!darr_set(darr, stmt.arg2.sym->id, &lineno)) {
                     fprintf(stderr,
                             "[CG Last Use]: Error setting last use of index %d for arg2 to line %d\n",
                             stmt.arg2.sym->id,
@@ -3799,7 +3799,7 @@ cg_get_last_use(struct ir_block * block)
     return darr;
 
 error:
-    cg_darr_destroy(&darr);
+    darr_destroy(&darr);
     return NULL;
 }
 
@@ -3816,7 +3816,7 @@ cg_new_register(struct cg_ctx * ctx, int lineno)
     if (!ctx) return -1;
     for (int r = 0; r < VM_REGISTER_CNT; r++) {
         if (ctx->sym_at_reg[r] == -1) return r;
-        if (*(int*)cg_darr_get(ctx->last_use, r) < lineno) return r;
+        if (*(int*)darr_get(ctx->last_use, r) < lineno) return r;
     }
     return -1;
 }
@@ -3827,25 +3827,25 @@ cg_ensure_register(struct cg_ctx * ctx, int symid, int lineno)
     if (lineno == -1) return -1;
     assert(ctx);
     assert(0 <= symid);
-    assert(symid < cg_darr_size(ctx->last_use));
+    assert(symid < darr_size(ctx->last_use));
 
     /* Check for existing register allocation */
-    if (*(int*)cg_darr_get(ctx->reg_of_sym, symid) != -1) return *(int*)cg_darr_get(ctx->reg_of_sym, symid);
+    if (*(int*)darr_get(ctx->reg_of_sym, symid) != -1) return *(int*)darr_get(ctx->reg_of_sym, symid);
 
     /* Look for new register */
     for (int r = 0; r < VM_REGISTER_CNT; r++) {
         /* Assign free register */
         if (ctx->sym_at_reg[r] == -1) {
-            cg_darr_set(ctx->reg_of_sym, symid, &r);
+            darr_set(ctx->reg_of_sym, symid, &r);
             ctx->sym_at_reg[r] = symid;
             return r;
         }
 
         /* Otherwise check for stale register */
         int sym_at_reg = ctx->sym_at_reg[r];
-        int last_use = *(int*)cg_darr_get(ctx->last_use, sym_at_reg);
+        int last_use = *(int*)darr_get(ctx->last_use, sym_at_reg);
         if (last_use < lineno) {
-            cg_darr_set(ctx->reg_of_sym, symid, &r);
+            darr_set(ctx->reg_of_sym, symid, &r);
             ctx->sym_at_reg[r] = symid;
             return r;
         }
@@ -3854,7 +3854,7 @@ cg_ensure_register(struct cg_ctx * ctx, int symid, int lineno)
 }
 
 bool
-cg_generate_mov_rc(struct cg_ctx * ctx, struct cg_darr * program, int dest, int val)
+cg_generate_mov_rc(struct cg_ctx * ctx, struct darr * program, int dest, int val)
 {
     if (!ctx) return false;
     if (!program) return false;
@@ -3867,15 +3867,15 @@ cg_generate_mov_rc(struct cg_ctx * ctx, struct cg_darr * program, int dest, int 
     };
     union vm_instr_view val_part = { .raw = val };
 
-    if (!cg_darr_push_back(program, &mov_part)) return false;
-    if (!cg_darr_push_back(program, &val)) return false;
+    if (!darr_push_back(program, &mov_part)) return false;
+    if (!darr_push_back(program, &val)) return false;
     return true;
 }
 
 
 
 int
-cg_ensure_arg_register(struct cg_ctx * ctx, struct cg_darr * program, struct ir_arg arg, int lineno)
+cg_ensure_arg_register(struct cg_ctx * ctx, struct darr * program, struct ir_arg arg, int lineno)
 {
     /* If symbol, just allocate a register */
     if (arg.type == IR_SYM) return cg_ensure_register(ctx, arg.sym->id, lineno);
@@ -3891,7 +3891,7 @@ cg_ensure_arg_register(struct cg_ctx * ctx, struct cg_darr * program, struct ir_
 
 
 bool
-cg_generate_binop(struct cg_ctx * ctx, struct cg_darr * program, struct ir_stmt stmt, int lineno)
+cg_generate_binop(struct cg_ctx * ctx, struct darr * program, struct ir_stmt stmt, int lineno)
 {
     int arg1_reg = cg_ensure_arg_register(ctx, program, stmt.arg1, lineno);
     if (arg1_reg == -1) return false;
@@ -3910,7 +3910,7 @@ cg_generate_binop(struct cg_ctx * ctx, struct cg_darr * program, struct ir_stmt 
             .dest = dest_reg,
         }
     };
-    if (!cg_darr_push_back(program, &view)) return false;
+    if (!darr_push_back(program, &view)) return false;
     return true;
 }
 
@@ -3921,8 +3921,8 @@ void
 cg_ctx_destroy(struct cg_ctx ** ctx)
 {
     if (!ctx || !*ctx) return;
-    cg_darr_destroy(&ctx[0]->last_use);
-    cg_darr_destroy(&ctx[0]->reg_of_sym);
+    darr_destroy(&ctx[0]->last_use);
+    darr_destroy(&ctx[0]->reg_of_sym);
     free(*ctx);
     *ctx = NULL;
 }
@@ -3944,8 +3944,8 @@ cg_ctx_init(struct ir_block * block)
     if (!(ctx->last_use = cg_get_last_use(block))) goto error;
 
     /* Allocate reg_of_sym */
-    if (!(ctx->reg_of_sym = cg_darr_init(sizeof(int)))) goto error;
-    if (!(cg_darr_resize(ctx->reg_of_sym, cg_darr_size(ctx->last_use), &none))) goto error;
+    if (!(ctx->reg_of_sym = darr_init(sizeof(int)))) goto error;
+    if (!(darr_resize(ctx->reg_of_sym, darr_size(ctx->last_use), &none))) goto error;
 
     /* Fill sym_at_reg */
     for (int i = 0; i < VM_REGISTER_CNT; i++) {
@@ -3962,11 +3962,11 @@ error:
 }
 
 
-// cg_darr of type vm_instr_view
-struct cg_darr *
+// darr of type vm_instr_view
+struct darr *
 cg_generate_code(struct cg_ctx * ctx)
 {
-    struct cg_darr * program = NULL;
+    struct darr * program = NULL;
     int arg1_reg;
     int arg2_reg;
     int dest_reg;
@@ -3975,7 +3975,7 @@ cg_generate_code(struct cg_ctx * ctx)
     if (!ctx) goto error;
 
     /* Init program array */
-    if (!(program = cg_darr_init(sizeof(union vm_instr_view)))) goto error;
+    if (!(program = darr_init(sizeof(union vm_instr_view)))) goto error;
 
     for (int lineno = 0; lineno < ctx->block->size; lineno++) {
         struct ir_stmt stmt = ctx->block->stmts[lineno];
@@ -3993,7 +3993,7 @@ cg_generate_code(struct cg_ctx * ctx)
     return program;
 
 error:
-    cg_darr_destroy(&program);
+    darr_destroy(&program);
     return NULL;
 }
 ast.h/          0           0     0     644     1081      `
@@ -6779,7 +6779,7 @@ int main(int argc, char * const * argv)
     struct ast_node * ast_root = NULL;
     struct ast_ctx ast_ctx = {0};
     struct cg_ctx *  cg_ctx = NULL;
-    struct cg_darr * program = NULL;
+    struct darr * program = NULL;
     int exit_status = EXIT_SUCCESS;
 
     /*********************
@@ -6875,7 +6875,7 @@ int main(int argc, char * const * argv)
     if (ast_ctx.text) fclose(ast_ctx.text);
     if (ir_ctx.rprt && ir_ctx.rprt != stdout) fclose(ir_ctx.rprt);
     cg_ctx_destroy(&cg_ctx);
-    cg_darr_destroy(&program);
+    darr_destroy(&program);
     return exit_status;
 }
 lexer.l/        0           0     0     644     1211      `
@@ -7327,17 +7327,17 @@ darr.h/         0           0     0     644     668       `
 #ifndef CG_DARR_H
 #define CG_DARR_H 1
 
-struct cg_darr;
-struct cg_darr * cg_darr_init(int elem_size);
-void cg_darr_destroy(struct cg_darr ** darr);
-bool cg_darr_reserve(struct cg_darr * darr, int cap);
-bool cg_darr_resize(struct cg_darr * darr, int new_size, void * fill_src);
-bool cg_darr_push_back(struct cg_darr * darr, void * src);
-void * cg_darr_get(struct cg_darr * darr, int indx);
-bool cg_darr_set(struct cg_darr * darr, int indx, void * src);
-bool cg_darr_pop_back(struct cg_darr * darr, void * dst);
-int cg_darr_size(struct cg_darr * darr);
-bool cg_darr_ensure_index(struct cg_darr *darr, int indx, void *fill_src);
+struct darr;
+struct darr * darr_init(int elem_size);
+void darr_destroy(struct darr ** darr);
+bool darr_reserve(struct darr * darr, int cap);
+bool darr_resize(struct darr * darr, int new_size, void * fill_src);
+bool darr_push_back(struct darr * darr, void * src);
+void * darr_get(struct darr * darr, int indx);
+bool darr_set(struct darr * darr, int indx, void * src);
+bool darr_pop_back(struct darr * darr, void * dst);
+int darr_size(struct darr * darr);
+bool darr_ensure_index(struct darr *darr, int indx, void *fill_src);
 
 #endif
 // CG_DARR_H
@@ -7348,34 +7348,34 @@ darr.c/         0           0     0     644     5202      `
 #include <string.h>
 #include <stdbool.h>
 
-struct cg_darr {
+struct darr {
     int   size;
     int   cap;
     int   elem_size;
     void *buff;
 };
 
-struct cg_darr *
-cg_darr_init(int elem_size)
+struct darr *
+darr_init(int elem_size)
 {
     if (elem_size <= 0) {
         fprintf(stderr, "[CG DARR]: Element size must be positive.\n");
         return NULL;
     }
 
-    struct cg_darr *darr = malloc(sizeof(*darr));
+    struct darr *darr = malloc(sizeof(*darr));
     if (!darr) {
         fprintf(stderr, "[CG DARR]: Failed allocating dynamic array.\n");
         return NULL;
     }
 
-    *darr = (struct cg_darr){ .elem_size = elem_size };
+    *darr = (struct darr){ .elem_size = elem_size };
     return darr;
 }
 
 
 void
-cg_darr_destroy(struct cg_darr **darr)
+darr_destroy(struct darr **darr)
 {
     if (!darr || !*darr) return;
     free((*darr)->buff);
@@ -7385,7 +7385,7 @@ cg_darr_destroy(struct cg_darr **darr)
 
 
 bool
-cg_darr_reserve(struct cg_darr *darr, int cap)
+darr_reserve(struct darr *darr, int cap)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to reserve.\n");
@@ -7406,7 +7406,7 @@ cg_darr_reserve(struct cg_darr *darr, int cap)
 
 
 bool
-cg_darr_resize(struct cg_darr *darr, int new_size, void *fill_src)
+darr_resize(struct darr *darr, int new_size, void *fill_src)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to resize.\n");
@@ -7420,7 +7420,7 @@ cg_darr_resize(struct cg_darr *darr, int new_size, void *fill_src)
     if (new_size > darr->cap) {
         int new_cap = darr->cap ? darr->cap * 2 : 8;
         if (new_cap < new_size) new_cap = new_size;
-        if (!cg_darr_reserve(darr, new_cap)) return false;
+        if (!darr_reserve(darr, new_cap)) return false;
     }
 
     if (new_size > darr->size) {
@@ -7442,7 +7442,7 @@ cg_darr_resize(struct cg_darr *darr, int new_size, void *fill_src)
 }
 
 bool
-cg_darr_push_back(struct cg_darr *darr, void *src)
+darr_push_back(struct darr *darr, void *src)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to push_back.\n");
@@ -7452,7 +7452,7 @@ cg_darr_push_back(struct cg_darr *darr, void *src)
         fprintf(stderr, "[CG DARR]: NULL src provided to push_back.\n");
         return false;
     }
-    if (!cg_darr_resize(darr, darr->size + 1, NULL)) {
+    if (!darr_resize(darr, darr->size + 1, NULL)) {
         fprintf(stderr, "[CG DARR]: Failed to grow array in push_back.\n");
         return false;
     }
@@ -7464,7 +7464,7 @@ cg_darr_push_back(struct cg_darr *darr, void *src)
 }
 
 void *
-cg_darr_get(struct cg_darr *darr, int indx)
+darr_get(struct darr *darr, int indx)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to get.\n");
@@ -7482,7 +7482,7 @@ cg_darr_get(struct cg_darr *darr, int indx)
 }
 
 bool
-cg_darr_set(struct cg_darr *darr, int indx, void *src)
+darr_set(struct darr *darr, int indx, void *src)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to set.\n");
@@ -7506,7 +7506,7 @@ cg_darr_set(struct cg_darr *darr, int indx, void *src)
 
 
 bool
-cg_darr_pop_back(struct cg_darr *darr, void *dst)
+darr_pop_back(struct darr *darr, void *dst)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to pop_back.\n");
@@ -7526,7 +7526,7 @@ cg_darr_pop_back(struct cg_darr *darr, void *dst)
 
 
 int
-cg_darr_size(struct cg_darr * darr)
+darr_size(struct darr * darr)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: Size requested for NULL dynamic array.\n");
@@ -7536,7 +7536,7 @@ cg_darr_size(struct cg_darr * darr)
 }
 
 bool
-cg_darr_ensure_index(struct cg_darr *darr, int indx, void *fill_src)
+darr_ensure_index(struct darr *darr, int indx, void *fill_src)
 {
     if (!darr) {
         fprintf(stderr, "[CG DARR]: NULL array provided to ensure_index.\n");
@@ -7548,7 +7548,7 @@ cg_darr_ensure_index(struct cg_darr *darr, int indx, void *fill_src)
     }
     if (indx < darr->size) return true;
     int target_size = indx + 1;
-    if (!cg_darr_resize(darr, target_size, fill_src)) {
+    if (!darr_resize(darr, target_size, fill_src)) {
         fprintf(stderr, "[CG DARR]: Failed to resize array in ensure_index.\n");
         return false;
     }
@@ -10019,8 +10019,8 @@ struct cg_ctx;
 struct cg_ctx * cg_ctx_init(struct ir_block * block);
 void cg_ctx_destroy(struct cg_ctx ** ctx);
 
-// cg_darr of type vm_instr_view
-struct cg_darr * cg_generate_code(struct cg_ctx * ctx);
+// darr of type vm_instr_view
+struct darr * cg_generate_code(struct cg_ctx * ctx);
 
 
 #endif
@@ -10041,8 +10041,8 @@ cg.c/           0           0     0     644     7943      `
  * Structures *
  **************/
 struct cg_ctx {
-    struct cg_darr * last_use;        // line number. int
-    struct cg_darr * reg_of_sym;      // register int. (need -1)
+    struct darr * last_use;        // line number. int
+    struct darr * reg_of_sym;      // register int. (need -1)
     int sym_at_reg[VM_REGISTER_CNT];
     struct ir_block * block;
 };
@@ -10063,10 +10063,10 @@ cg_ir_to_vm_op(enum ir_type type)
     }
 }
 
-static struct cg_darr *
+static struct darr *
 cg_get_last_use(struct ir_block * block)
 {
-    struct cg_darr * darr = NULL;
+    struct darr * darr = NULL;
 
     int none = -1;
 
@@ -10074,7 +10074,7 @@ cg_get_last_use(struct ir_block * block)
         fprintf(stderr, "[CG Last Use]: Empty block provided. No last use calculated.\n");
         goto error;
     }
-    if (!(darr = cg_darr_init(sizeof(int)))) {
+    if (!(darr = darr_init(sizeof(int)))) {
         fprintf(stderr, "[CG Last Use]: Error initializing last use array.\n");
         goto error;
     }
@@ -10088,14 +10088,14 @@ cg_get_last_use(struct ir_block * block)
         case IR_DIV:
         case IR_MOD:
             if (stmt.arg1.type == IR_SYM) {
-                if (!cg_darr_ensure_index(darr, stmt.arg1.sym->id, &none)) {
+                if (!darr_ensure_index(darr, stmt.arg1.sym->id, &none)) {
                     fprintf(stderr,
                             "[CG Last Use]: Error allocating symbol index %d for arg1 in line %d\n",
                             stmt.arg1.sym->id,
                             lineno);
                     goto error;
                 }
-                if (!cg_darr_set(darr, stmt.arg1.sym->id, &lineno)) {
+                if (!darr_set(darr, stmt.arg1.sym->id, &lineno)) {
                     fprintf(stderr,
                             "[CG Last Use]: Error setting last use of index %d for arg1 to line %d\n",
                             stmt.arg1.sym->id,
@@ -10104,14 +10104,14 @@ cg_get_last_use(struct ir_block * block)
                 }
             }
             if (stmt.arg2.type == IR_SYM) {
-                if (!cg_darr_ensure_index(darr, stmt.arg2.sym->id, &none)) {
+                if (!darr_ensure_index(darr, stmt.arg2.sym->id, &none)) {
                     fprintf(stderr,
                             "[CG Last Use]: Error allocating symbol index %d for arg2 in line %d\n",
                             stmt.arg2.sym->id,
                             lineno);
                     goto error;
                 }
-                if (!cg_darr_set(darr, stmt.arg2.sym->id, &lineno)) {
+                if (!darr_set(darr, stmt.arg2.sym->id, &lineno)) {
                     fprintf(stderr,
                             "[CG Last Use]: Error setting last use of index %d for arg2 to line %d\n",
                             stmt.arg2.sym->id,
@@ -10126,7 +10126,7 @@ cg_get_last_use(struct ir_block * block)
     return darr;
 
 error:
-    cg_darr_destroy(&darr);
+    darr_destroy(&darr);
     return NULL;
 }
 
@@ -10143,7 +10143,7 @@ cg_new_register(struct cg_ctx * ctx, int lineno)
     if (!ctx) return -1;
     for (int r = 0; r < VM_REGISTER_CNT; r++) {
         if (ctx->sym_at_reg[r] == -1) return r;
-        if (*(int*)cg_darr_get(ctx->last_use, r) < lineno) return r;
+        if (*(int*)darr_get(ctx->last_use, r) < lineno) return r;
     }
     return -1;
 }
@@ -10154,25 +10154,25 @@ cg_ensure_register(struct cg_ctx * ctx, int symid, int lineno)
     if (lineno == -1) return -1;
     assert(ctx);
     assert(0 < symid);
-    assert(symid < cg_darr_size(ctx->last_use));
+    assert(symid < darr_size(ctx->last_use));
 
     /* Check for existing register allocation */
-    if (*(int*)cg_darr_get(ctx->reg_of_sym, symid) != -1) return *(int*)cg_darr_get(ctx->reg_of_sym, symid);
+    if (*(int*)darr_get(ctx->reg_of_sym, symid) != -1) return *(int*)darr_get(ctx->reg_of_sym, symid);
 
     /* Look for new register */
     for (int r = 0; r < VM_REGISTER_CNT; r++) {
         /* Assign free register */
         if (ctx->sym_at_reg[r] == -1) {
-            cg_darr_set(ctx->reg_of_sym, symid, &r);
+            darr_set(ctx->reg_of_sym, symid, &r);
             ctx->sym_at_reg[r] = symid;
             return r;
         }
 
         /* Otherwise check for stale register */
         int sym_at_reg = ctx->sym_at_reg[r];
-        int last_use = *(int*)cg_darr_get(ctx->last_use, sym_at_reg);
+        int last_use = *(int*)darr_get(ctx->last_use, sym_at_reg);
         if (last_use < lineno) {
-            cg_darr_set(ctx->reg_of_sym, symid, &r);
+            darr_set(ctx->reg_of_sym, symid, &r);
             ctx->sym_at_reg[r] = symid;
             return r;
         }
@@ -10181,7 +10181,7 @@ cg_ensure_register(struct cg_ctx * ctx, int symid, int lineno)
 }
 
 bool
-cg_generate_mov_rc(struct cg_ctx * ctx, struct cg_darr * program, int dest, int val)
+cg_generate_mov_rc(struct cg_ctx * ctx, struct darr * program, int dest, int val)
 {
     if (!ctx) return false;
     if (!program) return false;
@@ -10194,15 +10194,15 @@ cg_generate_mov_rc(struct cg_ctx * ctx, struct cg_darr * program, int dest, int 
     };
     union vm_instr_view val_part = { .raw = val };
 
-    if (!cg_darr_push_back(program, &mov_part)) return false;
-    if (!cg_darr_push_back(program, &val)) return false;
+    if (!darr_push_back(program, &mov_part)) return false;
+    if (!darr_push_back(program, &val)) return false;
     return true;
 }
 
 
 
 int
-cg_ensure_arg_register(struct cg_ctx * ctx, struct cg_darr * program, struct ir_arg arg, int lineno)
+cg_ensure_arg_register(struct cg_ctx * ctx, struct darr * program, struct ir_arg arg, int lineno)
 {
     /* If symbol, just allocate a register */
     if (arg.type == IR_SYM) return cg_ensure_register(ctx, arg.sym->id, lineno);
@@ -10218,7 +10218,7 @@ cg_ensure_arg_register(struct cg_ctx * ctx, struct cg_darr * program, struct ir_
 
 
 bool
-cg_generate_binop(struct cg_ctx * ctx, struct cg_darr * program, struct ir_stmt stmt, int lineno)
+cg_generate_binop(struct cg_ctx * ctx, struct darr * program, struct ir_stmt stmt, int lineno)
 {
     int arg1_reg = cg_ensure_arg_register(ctx, program, stmt.arg1, lineno);
     if (arg1_reg == -1) return false;
@@ -10237,7 +10237,7 @@ cg_generate_binop(struct cg_ctx * ctx, struct cg_darr * program, struct ir_stmt 
             .dest = dest_reg,
         }
     };
-    if (!cg_darr_push_back(program, &view)) return false;
+    if (!darr_push_back(program, &view)) return false;
     return true;
 }
 
@@ -10248,8 +10248,8 @@ void
 cg_ctx_destroy(struct cg_ctx ** ctx)
 {
     if (!ctx || !*ctx) return;
-    cg_darr_destroy(&ctx[0]->last_use);
-    cg_darr_destroy(&ctx[0]->reg_of_sym);
+    darr_destroy(&ctx[0]->last_use);
+    darr_destroy(&ctx[0]->reg_of_sym);
     free(*ctx);
     *ctx = NULL;
 }
@@ -10271,8 +10271,8 @@ cg_ctx_init(struct ir_block * block)
     if (!(ctx->last_use = cg_get_last_use(block))) goto error;
 
     /* Allocate reg_of_sym */
-    if (!(ctx->reg_of_sym = cg_darr_init(sizeof(int)))) goto error;
-    if (!(cg_darr_resize(ctx->reg_of_sym, cg_darr_size(ctx->last_use), &none))) goto error;
+    if (!(ctx->reg_of_sym = darr_init(sizeof(int)))) goto error;
+    if (!(darr_resize(ctx->reg_of_sym, darr_size(ctx->last_use), &none))) goto error;
 
     /* Fill sym_at_reg */
     for (int i = 0; i < VM_REGISTER_CNT; i++) {
@@ -10289,11 +10289,11 @@ error:
 }
 
 
-// cg_darr of type vm_instr_view
-struct cg_darr *
+// darr of type vm_instr_view
+struct darr *
 cg_generate_code(struct cg_ctx * ctx)
 {
-    struct cg_darr * program = NULL;
+    struct darr * program = NULL;
     int arg1_reg;
     int arg2_reg;
     int dest_reg;
@@ -10302,7 +10302,7 @@ cg_generate_code(struct cg_ctx * ctx)
     if (!ctx) goto error;
 
     /* Init program array */
-    if (!(program = cg_darr_init(sizeof(union vm_instr_view)))) goto error;
+    if (!(program = darr_init(sizeof(union vm_instr_view)))) goto error;
 
     for (int lineno = 0; lineno < ctx->block->size; lineno++) {
         struct ir_stmt stmt = ctx->block->stmts[lineno];
@@ -10320,7 +10320,7 @@ cg_generate_code(struct cg_ctx * ctx)
     return program;
 
 error:
-    cg_darr_destroy(&program);
+    darr_destroy(&program);
     return NULL;
 }
 

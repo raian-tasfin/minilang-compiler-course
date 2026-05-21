@@ -12,8 +12,8 @@
  * Structures *
  **************/
 struct cg_ctx {
-    struct cg_darr * last_use;        // line number. int
-    struct cg_darr * reg_of_sym;      // register int. (need -1)
+    struct darr * last_use;        // line number. int
+    struct darr * reg_of_sym;      // register int. (need -1)
     int sym_at_reg[VM_REGISTER_CNT];
     struct ir_block * block;
 };
@@ -37,24 +37,24 @@ cg_ir_to_vm_op(enum ir_binop op)
 /* bool */
 /* cg_generate_const_assignment(struct ir_block * block, ) */
 bool
-cg_update_last_use(struct cg_darr * program, int id, int lineno, int none)
+cg_update_last_use(struct darr * program, int id, int lineno, int none)
 {
-    if (!cg_darr_ensure_index(program, id, &none)) return false;
-    if (!cg_darr_set(program, id, &lineno)) return false;
+    if (!darr_ensure_index(program, id, &none)) return false;
+    if (!darr_set(program, id, &lineno)) return false;
     return true;
 }
 
 
-static struct cg_darr *
+static struct darr *
 cg_get_last_use(struct ir_block * block)
 {
-    struct cg_darr * luse = NULL;
+    struct darr * luse = NULL;
     int none = -1;
     if (!block) {
         fprintf(stderr, "[CG Last Use]: Empty block provided. No last use calculated.\n");
         goto error;
     }
-    if (!(luse = cg_darr_init(sizeof(int)))) {
+    if (!(luse = darr_init(sizeof(int)))) {
         fprintf(stderr, "[CG Last Use]: Error initializing last use array.\n");
         goto error;
     }
@@ -78,7 +78,7 @@ cg_get_last_use(struct ir_block * block)
     return luse;
 
 error:
-    cg_darr_destroy(&luse);
+    darr_destroy(&luse);
     return NULL;
 }
 
@@ -91,10 +91,10 @@ cg_alloc_register_sym(struct cg_ctx * ctx, int symid, int lineno)
     int none = -1;
     if (!ctx || symid < 0) return none;
 
-    if (!cg_darr_ensure_index(ctx->reg_of_sym, symid, &none)) return none;
-    if (!cg_darr_ensure_index(ctx->last_use, symid, &none)) return none;
+    if (!darr_ensure_index(ctx->reg_of_sym, symid, &none)) return none;
+    if (!darr_ensure_index(ctx->last_use, symid, &none)) return none;
 
-    int reg_of_sym = *(int*)cg_darr_get(ctx->reg_of_sym, symid);
+    int reg_of_sym = *(int*)darr_get(ctx->reg_of_sym, symid);
     if (reg_of_sym != -1) return reg_of_sym;
 
     for (int r = 0; r < VM_REGISTER_CNT; r++) {
@@ -102,15 +102,15 @@ cg_alloc_register_sym(struct cg_ctx * ctx, int symid, int lineno)
         /* Free Slot */
         if (current_sym == -1) {
             ctx->sym_at_reg[r] = symid;
-            cg_darr_set(ctx->reg_of_sym, symid, &r);
+            darr_set(ctx->reg_of_sym, symid, &r);
             return r;
         }
         /* Stale Register Check */
-        int last_use_line = *(int*)cg_darr_get(ctx->last_use, current_sym);
+        int last_use_line = *(int*)darr_get(ctx->last_use, current_sym);
         if (last_use_line < lineno) {
-            cg_darr_set(ctx->reg_of_sym, current_sym, &none);
+            darr_set(ctx->reg_of_sym, current_sym, &none);
             ctx->sym_at_reg[r] = symid;
-            cg_darr_set(ctx->reg_of_sym, symid, &r);
+            darr_set(ctx->reg_of_sym, symid, &r);
             return r;
         }
     }
@@ -169,8 +169,8 @@ void
 cg_ctx_destroy(struct cg_ctx ** ctx)
 {
     if (!ctx || !*ctx) return;
-    cg_darr_destroy(&ctx[0]->last_use);
-    cg_darr_destroy(&ctx[0]->reg_of_sym);
+    darr_destroy(&ctx[0]->last_use);
+    darr_destroy(&ctx[0]->reg_of_sym);
     free(*ctx);
     *ctx = NULL;
 }
@@ -191,8 +191,8 @@ cg_ctx_init(struct ir_block * block)
     if (!(ctx->last_use = cg_get_last_use(block))) goto error;
 
     /* Allocate reg_of_sym */
-    if (!(ctx->reg_of_sym = cg_darr_init(sizeof(int)))) goto error;
-    if (!(cg_darr_resize(ctx->reg_of_sym, cg_darr_size(ctx->last_use), &none))) goto error;
+    if (!(ctx->reg_of_sym = darr_init(sizeof(int)))) goto error;
+    if (!(darr_resize(ctx->reg_of_sym, darr_size(ctx->last_use), &none))) goto error;
 
     /* Fill sym_at_reg */
     for (int i = 0; i < VM_REGISTER_CNT; i++) {
@@ -209,36 +209,36 @@ error:
 }
 
 
-// cg_darr of type vm_instr_view
-struct cg_darr *
+// darr of type vm_instr_view
+struct darr *
 cg_generate_code(struct cg_ctx * ctx)
 {
-    struct cg_darr * program = NULL;
+    struct darr * program = NULL;
 
     /* Ensure context */
     if (!ctx) goto error;
 
     /* Init program array */
-    if (!(program = cg_darr_init(sizeof(union vm_instr_view)))) goto error;
+    if (!(program = darr_init(sizeof(union vm_instr_view)))) goto error;
 
     for (int lineno = 0; lineno < ctx->block->size; lineno++) {
         struct ir_stmt stmt = ctx->block->stmts[lineno];
         switch(stmt.type) {
         case IR_PRINT: {
             union vm_instr_view view = cg_generate_prnt(ctx, stmt.prnt, lineno);
-            if (!cg_darr_push_back(program, &view)) goto error;
+            if (!darr_push_back(program, &view)) goto error;
             break;
         }
         case IR_CONST_ASSIGNMENT: {
             union vm_instr_view view = cg_generate_const_asn(ctx, stmt.const_asn, lineno);
-            if (!cg_darr_push_back(program, &view)) goto error;
+            if (!darr_push_back(program, &view)) goto error;
             view.raw = stmt.const_asn.val;
-            if (!cg_darr_push_back(program, &view)) goto error;
+            if (!darr_push_back(program, &view)) goto error;
             break;
         }
         case IR_BINOP_ASSIGNMENT: {
             union vm_instr_view view = cg_generate_binop_asn(ctx, stmt.binop_asn, lineno);
-            if (!cg_darr_push_back(program, &view)) goto error;
+            if (!darr_push_back(program, &view)) goto error;
             break;
         }
         default:
@@ -246,10 +246,10 @@ cg_generate_code(struct cg_ctx * ctx)
         }
     }
     union vm_instr_view view = { .base.op = VM_EXIT };
-    cg_darr_push_back(program, &view);
+    darr_push_back(program, &view);
     return program;
 
 error:
-    cg_darr_destroy(&program);
+    darr_destroy(&program);
     return NULL;
 }

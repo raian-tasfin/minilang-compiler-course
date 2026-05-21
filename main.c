@@ -20,7 +20,7 @@ int main(int argc, char * const * argv)
     struct ast_node * ast_root = NULL;
     struct ast_ctx ast_ctx = {0};
     struct cg_ctx *  cg_ctx = NULL;
-    struct cg_darr * program = NULL;
+    struct darr * program = NULL;
     int exit_status = EXIT_SUCCESS;
     FILE * cg_out = NULL;
 
@@ -114,8 +114,8 @@ int main(int argc, char * const * argv)
             goto destruct;
         }
         fwrite(cg_buffer(program),
-               cg_darr_elem_size(program),
-               cg_darr_size(program), cg_out);
+               darr_elem_size(program),
+               darr_size(program), cg_out);
     }
 
     /************
@@ -135,7 +135,7 @@ int main(int argc, char * const * argv)
     if (ast_ctx.text) fclose(ast_ctx.text);
     if (ir_ctx.rprt && ir_ctx.rprt != stdout) fclose(ir_ctx.rprt);
     cg_ctx_destroy(&cg_ctx);
-    cg_darr_destroy(&program);
+    darr_destroy(&program);
     if (cg_out) fclose(cg_out);
     return exit_status;
 }

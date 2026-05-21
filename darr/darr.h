@@ -1,23 +1,23 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifndef CG_DARR_H
-#define CG_DARR_H 1
+#ifndef DARR_H
+#define DARR_H 1
 
-struct cg_darr;
-struct cg_darr * cg_darr_init(int elem_size);
-void cg_darr_destroy(struct cg_darr ** darr);
-bool cg_darr_reserve(struct cg_darr * darr, int cap);
-bool cg_darr_resize(struct cg_darr * darr, int new_size, void * fill_src);
-bool cg_darr_push_back(struct cg_darr * darr, void * src);
-void * cg_darr_get(struct cg_darr * darr, int indx);
-bool cg_darr_set(struct cg_darr * darr, int indx, void * src);
-bool cg_darr_pop_back(struct cg_darr * darr, void * dst);
-int cg_darr_size(struct cg_darr * darr);
-bool cg_darr_ensure_index(struct cg_darr *darr, int indx, void *fill_src);
-uint8_t * cg_buffer(struct cg_darr * darr);
-int cg_darr_elem_size(struct cg_darr * darr);
+struct darr;
+struct darr * darr_init(int elem_size);
+void darr_destroy(struct darr ** darr);
+bool darr_reserve(struct darr * darr, int cap);
+bool darr_resize(struct darr * darr, int new_size, void * fill_src);
+bool darr_push_back(struct darr * darr, void * src);
+void * darr_get(struct darr * darr, int indx);
+bool darr_set(struct darr * darr, int indx, void * src);
+bool darr_pop_back(struct darr * darr, void * dst);
+int darr_size(struct darr * darr);
+bool darr_ensure_index(struct darr *darr, int indx, void *fill_src);
+uint8_t * cg_buffer(struct darr * darr);
+int darr_elem_size(struct darr * darr);
 
 
 #endif
-// CG_DARR_H
+// DARR_H
