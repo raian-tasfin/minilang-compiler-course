@@ -6,6 +6,9 @@
 #include <string.h>
 
 
+/***************
+ * AST Context *
+ ***************/
 struct ast_ctx
 ast_ctx_init(struct cli_ast_opts opts)
 {
@@ -26,6 +29,7 @@ ast_ctx_init(struct cli_ast_opts opts)
             opts.text_path
             ? fopen(opts.text_path, "w")
             : stdout;
+
         if (!ctx.text) {
             fprintf(stderr, "Could not open '%s'\n", opts.text_path);
             ctx.err = true;
@@ -36,7 +40,9 @@ ast_ctx_init(struct cli_ast_opts opts)
 }
 
 
-
+/*************************
+ * AST Node Constructors *
+ *************************/
 struct ast_node *
 ast_ctr_integer(int val)
 {
@@ -47,16 +53,14 @@ ast_ctr_integer(int val)
     }
     node[0] = (struct ast_node) {
         .type = AST_INTEGER,
-        .value.INTEGER = val,
-        .left = NULL,
-        .right = NULL
+        .integer = val
     };
     return node;
 }
 
 
 struct ast_node *
-ast_ctr_binop(enum ast_kind op_type,
+ast_ctr_binop(enum ast_binop_type op,
               struct ast_node * left,
               struct ast_node * right)
 {
@@ -66,9 +70,12 @@ ast_ctr_binop(enum ast_kind op_type,
         return NULL;
     }
     node[0] = (struct ast_node) {
-        .type = op_type,
-        .left = left,
-        .right = right
+        .type = AST_BINOP,
+        .binop = {
+            .op = op,
+            .left = left,
+            .right = right,
+        }
     };
     return node;
 }
@@ -84,11 +91,43 @@ ast_ctr_prnt(struct ast_node * subexpr)
     }
     node[0] = (struct ast_node) {
         .type = AST_PRNT,
-        .child = subexpr
+        .print.child = subexpr,
     };
     return node;
 }
 
+struct ast_node *
+ast_ctr_block(struct ast_node * parent, struct ast_node * child)
+{
+    struct ast_node * node = malloc(sizeof(struct ast_node));
+    if (!node) {
+        fprintf(stderr, "Failed allocating node.\n");
+        return NULL;
+    }
+    node[0] = (struct ast_node) {
+        .type = AST_BLOCK,
+        .block = {
+            .parent = parent,
+            .child = child,
+        }
+    };
+    return node;
+}
+
+struct ast_node *
+ast_ctr_punctuator(enum ast_punctuator_type type)
+{
+    struct ast_node * node = malloc(sizeof(struct ast_node));
+    if (!node) {
+        fprintf(stderr, "Failed allocating node.\n");
+        return NULL;
+    }
+    node[0] = (struct ast_node) {
+        .type = AST_PUNCTUATOR,
+        .punctuator = type,
+    };
+    return node;
+}
 
 /*********************
  * Text tree Drawing *
@@ -99,7 +138,7 @@ ast_ctr_prnt(struct ast_node * subexpr)
 #define TT_BLANK   "    "
 
 #define TT_MAX_DEPTH   256
-#define TT_PREFIX_STEP 4
+#define TT_PREFIX_STEP 500
 
 static void
 ast_print_texttree_r(struct ast_node *root,
@@ -108,19 +147,20 @@ ast_print_texttree_r(struct ast_node *root,
                      int  plen,
                      int  is_last)
 {
+    /**************
+     * Base Cases *
+     **************/
+    // null case
     if (!strm || !root) return;
+
+    // print connectors
     const char *connector = is_last ? TT_LAST : TT_BRANCH;
     fprintf(strm, "%s%s", prefix, connector);
-    switch (root->type) {
-    case AST_INTEGER:
-        fprintf(strm, "%s: %d\n", astk_tokstr(AST_INTEGER), root->value.INTEGER);
-        return;
-    default:
-        fprintf(strm, "%s\n", astk_tokstr(root->type));
-        break;
-    }
 
-    // prefix indentation
+
+    /**********************
+     * Prefix Indentation *
+     **********************/
     const char * cont = is_last ? TT_BLANK : TT_VERT;
     int clen = (int) strlen(cont);
     if (plen + clen < TT_MAX_DEPTH * TT_PREFIX_STEP) {
@@ -128,23 +168,33 @@ ast_print_texttree_r(struct ast_node *root,
         prefix[plen + clen] = '\0';
     }
 
+    /******************
+     * Recursive Case *
+     ******************/
     switch (root->type) {
-    case AST_ADD:
-    case AST_SUB:
-    case AST_MUL:
-    case AST_DIV:
-    case AST_MOD: {
-        ast_print_texttree_r(root->left,  strm, prefix, plen + clen, 0);
-        ast_print_texttree_r(root->right, strm, prefix, plen + clen, 1);
+    case AST_INTEGER:
+        fprintf(strm, "%s: %d\n", astk_kind_to_str(AST_INTEGER), root->integer);
+        return;
+    case AST_BINOP:
+        fprintf(strm, "%s: %s\n", astk_kind_to_str(AST_BINOP), astk_binop_to_str(root->binop.op));
+        ast_print_texttree_r(root->binop.left,  strm, prefix, plen + clen, 0);
+        ast_print_texttree_r(root->binop.right, strm, prefix, plen + clen, 1);
         break;
-    }
-    case AST_PRNT: {
-        // terminal unary
-        ast_print_texttree_r(root->child, strm, prefix, plen + clen, 1);
+    case AST_PRNT:
+        fprintf(strm, "%s\n", astk_kind_to_str(AST_PRNT));
+        ast_print_texttree_r(root->print.child, strm, prefix, plen + clen, 1);
         break;
-    }
+    case AST_BLOCK:
+        fprintf(strm, "%s\n", astk_kind_to_str(AST_BLOCK));
+        ast_print_texttree_r(root->block.child, strm, prefix, plen + clen, 1);
+        break;
+    case AST_PUNCTUATOR:
+        fprintf(strm, "%s\n", astk_punc_to_str(root->punctuator));
+        return;
     default:
+        fprintf(strm, "%s\n", astk_kind_to_str(root->type));
         break;
+
     }
     prefix[plen] = '\0';
 }
@@ -168,33 +218,57 @@ ast_to_dot(struct ast_node * root,
            int parent_id,
            int * dot_id)
 {
+    /*************
+     * Base Case *
+     *************/
     if (!root || !strm) return -1;
     int my_id = dot_id[0]++;
-    if (root->type == AST_INTEGER) {
-        fprintf(strm,
-                "  node%d [label=\"INTEGER: %d\"];\n",
-                my_id,
-                root->value.INTEGER);
-    } else {
-        fprintf(strm,
-                "  node%d [label=\"%s\"];\n",
-                my_id,
-                astk_tokstr(root->type));
+
+    /*************************
+     * Spawn Node with Label *
+     *************************/
+    switch (root->type) {
+        // nodes with scalar labels
+    case AST_INTEGER:
+        fprintf(strm, "  node%d [label=\"INTEGER: %d\"];\n", my_id, root->integer);
+        break;
+
+    case AST_BINOP:
+        fprintf(strm, "  node%d [label=\"BINOP: %s\"];\n", my_id, astk_binop_to_str(root->binop.op));
+        break;
+
+    case AST_PUNCTUATOR:
+        fprintf(strm, "  node%d [label=\"PUNCTUATOR: %s\"];\n", my_id, astk_punc_to_str(root->punctuator));
+        break;
+
+        // default nodes
+    default:
+        fprintf(strm, "  node%d [label=\"%s\"];\n", my_id, astk_kind_to_str(root->type));
     }
+
+
+    /****************
+     * Connect Edge *
+     ****************/
     if (parent_id != -1) {
         fprintf(strm, "  node%d -> node%d;\n", parent_id, my_id);
     }
+
+
+    /*************
+     * Sub-nodes *
+     *************/
     switch (root->type) {
-    case AST_ADD:
-    case AST_SUB:
-    case AST_MUL:
-    case AST_DIV:
-    case AST_MOD:
-        ast_to_dot(root->left, strm, my_id, dot_id);
-        ast_to_dot(root->right, strm, my_id, dot_id);
+    case AST_BINOP:
+        ast_to_dot(root->binop.left, strm, my_id, dot_id);
+        ast_to_dot(root->binop.right, strm, my_id, dot_id);
         break;
     case AST_PRNT:
-        ast_to_dot(root->child, strm, my_id, dot_id);
+        ast_to_dot(root->print.child, strm, my_id, dot_id);
+        break;
+    case AST_BLOCK:
+        /* ast_to_dot(root->block.parent, strm, my_id, dot_id); */
+        ast_to_dot(root->block.child, strm, my_id, dot_id);
         break;
     default:
         break;
@@ -213,37 +287,28 @@ void ast_print_dot(struct ast_node * root, FILE * strm)
 }
 
 
-
+/******************
+ * AST Destructor *
+ ******************/
 void
 ast_delete(struct ast_node ** root)
 {
     if (!root || !*root) return;
-
-    if (root[0]->child) ast_delete(&root[0]->child);
-    if (root[0]->left)  ast_delete(&root[0]->left);
-    if (root[0]->right) ast_delete(&root[0]->right);
-
-    free(root[0]);
-    *root = NULL;
-}
-
-
-int
-ast_cnt_nodes(struct ast_node * root)
-{
-    if (!root) return 0;
-    switch (root->type) {
-    case AST_INTEGER:
-        return 1;
-    case AST_ADD:
-    case AST_SUB:
-    case AST_MUL:
-    case AST_DIV:
-    case AST_MOD:
-        return 1 + ast_cnt_nodes(root->left) + ast_cnt_nodes(root->right);
+    switch ((*root)->type) {
+    case AST_BINOP:
+        ast_delete(&(*root)->binop.left);
+        ast_delete(&(*root)->binop.right);
+        break;
     case AST_PRNT:
-        return 1 + ast_cnt_nodes(root->child);
+        ast_delete(&(*root)->print.child);
+        break;
+    case AST_BLOCK:
+        ast_delete(&(*root)->block.child);
+        break;
     default:
-        return 0;
+        break;
     }
+
+    free(*root);
+    *root = NULL;
 }
