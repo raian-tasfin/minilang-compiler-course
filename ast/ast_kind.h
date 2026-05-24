@@ -29,9 +29,6 @@ enum ast_binop_type {
 };
 
 
-/* enum ast_kind */
-/* astk_from_tok(int token_type); */
-
 char *
 astk_kind_to_str(enum ast_kind kind);
 
@@ -40,6 +37,10 @@ astk_punc_to_str(enum ast_punctuator_type type);
 
 char *
 astk_binop_to_str(enum ast_binop_type type);
+
+enum ast_binop_type
+astk_binop_from_tok(int token_type);
+
 
 #endif
 // AST_KIND_H

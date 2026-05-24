@@ -34,6 +34,9 @@ cont        \\[[:blank:]]*\n
 "("                      { lxr_process(LPRN, yylval, yylloc, yyscanner); }
 ")"                      { lxr_process(RPRN, yylval, yylloc, yyscanner); }
 
+"{"                      { lxr_process(LBRACE, yylval, yylloc, yyscanner); }
+"}"                      { lxr_process(RBRACE, yylval, yylloc, yyscanner); }
+
 \n                       { lxr_process(NEWLINE, yylval, yylloc, yyscanner); }
 
 .                        { lxr_process(LEX_ERR, yylval, yylloc, yyscanner); }

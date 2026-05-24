@@ -29,6 +29,7 @@ struct lxr_ctx {
     FILE * rprt;
     FILE * instream;
     int open_parens;
+    int open_braces;
     bool err;
 };
 

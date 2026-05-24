@@ -2,25 +2,17 @@
 #include "../parser/parser.tab.h"
 
 
-/* enum ast_kind */
-/* astk_from_tok(int token_type) */
-/* { */
-/*     switch (token_type) { */
-/*     case ADD: return AST_ADD; */
-/*     case SUB: return AST_SUB; */
-/*     case MUL: return AST_MUL; */
-/*     case DIV: return AST_DIV; */
-/*     case MOD: return AST_MOD; */
-/*     case PRNT: return AST_PRNT; */
-/*     case INTEGER: return AST_INTEGER; */
-/*     default: { */
-/*         fprintf(stderr, */
-/*                 "[AST]: Unexpected token type: %d\n", */
-/*                 token_type); */
-/*         return AST_ERR; */
-/*     } */
-/*     } */
-/* } */
+enum ast_binop_type
+astk_binop_from_tok(int token_type)
+{
+    switch (token_type) {
+    case ADD: return AST_ADD;
+    case SUB: return AST_SUB;
+    case MUL: return AST_MUL;
+    case DIV: return AST_DIV;
+    case MOD: return AST_MOD;
+    }
+}
 
 
 char *

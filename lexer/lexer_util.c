@@ -65,10 +65,12 @@ lxr_toktostr(int token_type)
     case LEX_BLNK:    return "LEX_BLNK";
     case LEX_CONT:    return "LEX_CONT";
     case LEX_ERR:     return "LEX_ERR";
+    case LBRACE:      return "LBRACE";
     case LPRN:        return "LPRN";
     case MOD:         return "MOD";
     case MUL:         return "MUL";
     case NEWLINE:     return "NEWLINE";
+    case RBRACE:      return "RBRACE";
     case RPRN:        return "RPRN";
     case SUB:         return "SUB";
     case PRNT:        return "PRNT";
@@ -147,8 +149,18 @@ lxr_process_proc(int token_type,
         lxr_print_token(RPRN, yylval, ctx);
         return RPRN;
 
+    case LBRACE:
+        if (ctx) ctx->open_braces++;
+        lxr_print_token(LBRACE, yylval, ctx);
+        return LBRACE;
+
+    case RBRACE:
+        if (ctx && ctx->open_braces > 0) ctx->open_braces--;
+        lxr_print_token(RBRACE, yylval, ctx);
+        return RBRACE;
+
     case NEWLINE:
-        /* Structural newline (open expression) */
+        /* Structural newline: suppress only inside open parens */
         if (ctx && ctx->open_parens > 0) return LEX_IGNR;
 
         /* Actual Newline */

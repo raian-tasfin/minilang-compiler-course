@@ -46,6 +46,8 @@ yyerror(YYLTYPE * loc,
 %token LPRN
 %token RPRN
 %token PRNT
+%token LBRACE
+%token RBRACE
 
 
 /*******************************
@@ -58,7 +60,7 @@ yyerror(YYLTYPE * loc,
 /*******************************
  * Nonterminal Semantic Types  *
  *******************************/
-%type <struct ast_node *> expr line program stmt
+%type <struct ast_node *> expr program stmt block block_body
 
 
 /***********
@@ -67,30 +69,59 @@ yyerror(YYLTYPE * loc,
 %%
 
 program:
-%empty           { $$ = NULL; }
-| program line   { $$ = $2;   }
-;
-
-line:
-NEWLINE          { $$ = NULL; }
-| stmt NEWLINE   { $$ = $1; *ast_root = $1; }
-| stmt           { $$ = $1;   }
+  %empty           { $$ = NULL; }
+| program NEWLINE  { $$ = $1; }
+| program stmt     { $$ = ast_ctr_block($1, $2); *ast_root = $$; }
 ;
 
 stmt:
   expr                 { $$ = $1; }
 | PRNT LPRN expr RPRN  { $$ = ast_ctr_prnt($3); }
+| block                { $$ = $1; }
 ;
 
+/*
+ * A block is a linked list of block nodes.
+ * Each block node: .parent = previous node in list (or NULL if first)
+ *                  .child  = the stmt at this position
+ *
+ * { stmt1 \n stmt2 \n stmt3 }  builds:
+ *
+ *   block(parent=block(parent=block(parent=NULL, child=stmt1),
+ *                      child=stmt2),
+ *         child=stmt3)
+ *
+ * Nested blocks are handled naturally: a stmt can itself be a block,
+ * so { { inner } \n stmt } gives a block whose child is another block.
+ */
+block:
+  LBRACE RBRACE
+      { $$ = ast_ctr_block(NULL, NULL); }
+| LBRACE NEWLINE RBRACE
+      { $$ = ast_ctr_block(NULL, NULL); }
+| LBRACE block_body RBRACE
+      { $$ = $2; }
+| LBRACE NEWLINE block_body RBRACE
+      { $$ = $3; }
+;
+
+block_body:
+  stmt
+      { $$ = ast_ctr_block(NULL, $1); }
+| block_body NEWLINE stmt
+      { $$ = ast_ctr_block($1, $3); }
+| block_body NEWLINE
+      { $$ = $1; }
+;
 
 expr:
-INTEGER           { $$ = ast_ctr_integer($1); }
-| expr ADD expr   { $$ = ast_ctr_binop(astk_from_tok(ADD), $1, $3);  }
-| expr SUB expr   { $$ = ast_ctr_binop(astk_from_tok(SUB), $1, $3);  }
-| expr MUL expr   { $$ = ast_ctr_binop(astk_from_tok(MUL), $1, $3);  }
-| expr DIV expr   { $$ = ast_ctr_binop(astk_from_tok(DIV), $1, $3);  }
-| expr MOD expr   { $$ = ast_ctr_binop(astk_from_tok(MOD), $1, $3);  }
-| LPRN expr RPRN  { $$ = $2; }
+  INTEGER           { $$ = ast_ctr_integer($1); }
+| expr ADD expr     { $$ = ast_ctr_binop(astk_binop_from_tok(ADD), $1, $3); }
+| expr SUB expr     { $$ = ast_ctr_binop(astk_binop_from_tok(SUB), $1, $3); }
+| expr MUL expr     { $$ = ast_ctr_binop(astk_binop_from_tok(MUL), $1, $3); }
+| expr DIV expr     { $$ = ast_ctr_binop(astk_binop_from_tok(DIV), $1, $3); }
+| expr MOD expr     { $$ = ast_ctr_binop(astk_binop_from_tok(MOD), $1, $3); }
+| LPRN expr RPRN    { $$ = $2; }
 ;
 
 %%
