@@ -4,14 +4,18 @@
 
 /* Types of nodes with values */
 enum ast_kind {
-    AST_INTEGER,
-    AST_BOOLEAN,
+    AST_SCALAR,
     AST_BINOP,
     AST_PRNT,
     AST_BLOCK,
     AST_PUNCTUATOR,
 };
 
+
+enum ast_scalar_type {
+    AST_BOOLEAN,
+    AST_INTEGER,
+};
 
 /* Types of nodes that have no values */
 enum ast_punctuator_type {
@@ -35,6 +39,7 @@ enum ast_binop_type {
 char * astk_kind_to_str(enum ast_kind kind);
 char * astk_punc_to_str(enum ast_punctuator_type type);
 char * astk_binop_to_str(enum ast_binop_type type);
+char * astk_scalar_to_str(enum ast_scalar_type type);
 
 /* Alien enum to ast enum */
 enum ast_binop_type

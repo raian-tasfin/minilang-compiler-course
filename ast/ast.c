@@ -55,9 +55,12 @@ ast_ctr_integer(int val, struct ast_node * current_block)
     }
 
     *node = (struct ast_node) {
-        .type = AST_INTEGER,
+        .type = AST_SCALAR,
         .current_block = current_block,
-        .integer = val
+        .scalar = {
+            .type = AST_INTEGER,
+            .integer = val,
+        }
     };
 
     return node;
@@ -76,9 +79,12 @@ ast_ctr_boolean(bool val, struct ast_node * current_block)
     }
 
     *node = (struct ast_node) {
-        .type = AST_BOOLEAN,
+        .type = AST_SCALAR,
         .current_block = current_block,
-        .boolean = val
+        .scalar = {
+            .type = AST_BOOLEAN,
+            .boolean = val,
+        }
     };
 
     return node;
@@ -229,7 +235,7 @@ ast_print_texttree_r(struct ast_node *root,
 
         int n = darr_size(root->block.statements);
         for (int i = 0; i < n; i++) {
-            struct ast_node ** stmt = darr_get(root->block.statements, i);
+            struct ast_node **stmt = darr_get(root->block.statements, i);
             ast_print_texttree_r(*stmt, strm, prefix, plen + clen, i == n - 1);
         }
 
@@ -247,15 +253,16 @@ ast_print_texttree_r(struct ast_node *root,
     }
 
     switch (root->type) {
-    case AST_INTEGER:
-        fprintf(strm, "%s: %d\n", astk_kind_to_str(AST_INTEGER), root->integer);
-        break;
-    case AST_BOOLEAN:
-        fprintf(strm,
-                "%s: %s\n",
-                astk_kind_to_str(AST_BOOLEAN),
-                bool_to_str(root->boolean));
-        break;
+    case AST_SCALAR:
+        switch (root->scalar.type) {
+        case AST_INTEGER:
+            fprintf(strm, "%s: %d\n", astk_scalar_to_str(AST_INTEGER), root->scalar.integer);
+            break;
+        case AST_BOOLEAN:
+            fprintf(strm, "%s: %s\n", astk_scalar_to_str(AST_BOOLEAN), bool_to_str(root->scalar.boolean));
+            break;
+        }
+        break;  /* was missing — fell through into AST_BINOP */
     case AST_BINOP:
         fprintf(strm, "%s: %s\n", astk_kind_to_str(AST_BINOP), astk_binop_to_str(root->binop.op));
         ast_print_texttree_r(root->binop.left,  strm, prefix, plen + clen, 0);
@@ -300,12 +307,16 @@ ast_to_dot(struct ast_node * root,
     int my_id = dot_id[0]++;
 
     switch (root->type) {
-    case AST_INTEGER:
-        fprintf(strm, "  node%d [label=\"INTEGER: %d\"];\n", my_id, root->integer);
-        break;
-    case AST_BOOLEAN:
-        fprintf(strm, "  node%d [label=\"INTEGER: %s\"];\n", my_id, bool_to_str(root->boolean));
-        break;
+    case AST_SCALAR:
+        switch (root->scalar.type) {
+        case AST_INTEGER:
+            fprintf(strm, "  node%d [label=\"INTEGER: %d\"];\n", my_id, root->scalar.integer);
+            break;
+        case AST_BOOLEAN:
+            fprintf(strm, "  node%d [label=\"BOOLEAN: %s\"];\n", my_id, bool_to_str(root->scalar.boolean));
+            break;
+        }
+        break;  /* was missing — fell through into AST_BINOP */
     case AST_BINOP:
         fprintf(strm, "  node%d [label=\"BINOP: %s\"];\n", my_id, astk_binop_to_str(root->binop.op));
         break;
@@ -314,6 +325,7 @@ ast_to_dot(struct ast_node * root,
         break;
     default:
         fprintf(strm, "  node%d [label=\"%s\"];\n", my_id, astk_kind_to_str(root->type));
+        break;
     }
 
     if (parent_id != -1)
@@ -330,7 +342,7 @@ ast_to_dot(struct ast_node * root,
     case AST_BLOCK: {
         int n = darr_size(root->block.statements);
         for (int i = 0; i < n; i++) {
-            struct ast_node ** stmt = darr_get(root->block.statements, i);
+            struct ast_node **stmt = darr_get(root->block.statements, i);
             ast_to_dot(*stmt, strm, my_id, dot_id);
         }
         break;
@@ -360,8 +372,7 @@ ast_delete(struct ast_node ** root)
 {
     if (!root || !*root) return;
     switch ((*root)->type) {
-    case AST_INTEGER: break;
-    case AST_BOOLEAN: break;
+    case AST_SCALAR: break;
     case AST_BINOP:
         ast_delete(&(*root)->binop.left);
         ast_delete(&(*root)->binop.right);
@@ -423,8 +434,7 @@ ast_finalize_r(struct ast_node * node,
     case AST_PRNT:
         ast_finalize_r(node->print.child, containing_block);
         break;
-    case AST_INTEGER:
-    case AST_BOOLEAN:
+    case AST_SCALAR:
     case AST_PUNCTUATOR:
     default:
         break;

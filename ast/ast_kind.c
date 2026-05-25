@@ -22,8 +22,7 @@ char *
 astk_kind_to_str(enum ast_kind kind)
 {
     switch (kind) {
-    case AST_INTEGER:    return "AST_INTEGER";
-    case AST_BOOLEAN:    return "AST_BOOLEAN";
+    case AST_SCALAR:    return "AST_SCALAR";
     case AST_BINOP:      return "AST_BINOP";
     case AST_PRNT:       return "AST_PRNT";
     case AST_BLOCK:      return "AST_BLOCK";
@@ -51,5 +50,14 @@ astk_binop_to_str(enum ast_binop_type type)
     case AST_AND: return "AST_AND";
     case AST_OR:  return "AST_OR";
     case AST_XOR: return "AST_XOR";
+    }
+}
+
+char *
+astk_scalar_to_str(enum ast_scalar_type type)
+{
+    switch (type) {
+    case AST_BOOLEAN: return "AST_BOOLEAN";
+    case AST_INTEGER: return "AST_INTEGER";
     }
 }

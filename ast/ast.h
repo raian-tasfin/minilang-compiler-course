@@ -23,6 +23,14 @@ struct ast_ctx ast_ctx_init(struct cli_ast_opts opts);
 /*****************
  * AST Structure *
  *****************/
+struct ast_scalar_node {
+    enum ast_scalar_type type;
+    union {
+        int integer;
+        bool boolean;
+    };
+};
+
 struct ast_binop_node {
     enum ast_binop_type op;
     struct ast_node * left;
@@ -42,11 +50,10 @@ struct ast_node {
     enum ast_kind type;
     struct ast_node * current_block;
     union {
+        struct ast_scalar_node scalar;
         struct ast_binop_node binop;
         struct ast_print_node print;
         struct ast_block_node block;
-        int integer;
-        bool boolean;
         enum ast_punctuator_type punctuator;
     };
 };
