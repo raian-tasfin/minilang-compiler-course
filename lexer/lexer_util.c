@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "lexer_util.h"
+#include "../boolean/boolean.h"
 
 
 /*********************
@@ -19,14 +20,6 @@ lxr_print(struct lxr_ctx * ctx, const char *fmt, ...)
     vfprintf(ctx->rprt, fmt, args);
     va_end(args);
 }
-
-static bool
-lxr_tok_to_bool(char * tok)
-{
-    if (strcmp(tok, "True") == 0) return true;
-    return false;
-}
-
 
 /**************/
 /* Public API */
@@ -145,7 +138,7 @@ lxr_process_proc(int token_type,
         lxr_print_token(INTEGER, yylval, ctx);
         return INTEGER;
     case BOOLEAN:
-        if (yylval) yylval->BOOLEAN = lxr_tok_to_bool(yytext);
+        if (yylval) yylval->BOOLEAN = str_to_bool(yytext);
         lxr_print_token(BOOLEAN, yylval, ctx);
         return BOOLEAN;
 

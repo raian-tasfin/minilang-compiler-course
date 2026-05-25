@@ -1,11 +1,11 @@
 #include "ast.h"
 #include "ast_kind.h"
 #include "../darr/darr.h"
+#include "../boolean/boolean.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <threads.h>
 
 
 /***************
@@ -251,7 +251,10 @@ ast_print_texttree_r(struct ast_node *root,
         fprintf(strm, "%s: %d\n", astk_kind_to_str(AST_INTEGER), root->integer);
         break;
     case AST_BOOLEAN:
-        fprintf(strm, "%s: %d\n", astk_kind_to_str(AST_BOOLEAN), root->boolean);
+        fprintf(strm,
+                "%s: %s\n",
+                astk_kind_to_str(AST_BOOLEAN),
+                bool_to_str(root->boolean));
         break;
     case AST_BINOP:
         fprintf(strm, "%s: %s\n", astk_kind_to_str(AST_BINOP), astk_binop_to_str(root->binop.op));
@@ -301,7 +304,7 @@ ast_to_dot(struct ast_node * root,
         fprintf(strm, "  node%d [label=\"INTEGER: %d\"];\n", my_id, root->integer);
         break;
     case AST_BOOLEAN:
-        fprintf(strm, "  node%d [label=\"INTEGER: %s\"];\n", my_id, root->boolean ? "True": "False");
+        fprintf(strm, "  node%d [label=\"INTEGER: %s\"];\n", my_id, bool_to_str(root->boolean));
         break;
     case AST_BINOP:
         fprintf(strm, "  node%d [label=\"BINOP: %s\"];\n", my_id, astk_binop_to_str(root->binop.op));

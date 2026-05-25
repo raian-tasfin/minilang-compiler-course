@@ -79,6 +79,14 @@ DARR_C = $(DARR_DIR)/darr.c
 DARR_H = $(DARR_DIR)/darr.h
 
 
+###########
+# Boolean #
+###########
+BOOLEAN_DIR = boolean
+BOOLEAN_C = $(BOOLEAN_DIR)/boolean.c
+BOOLEAN_H = $(BOOLEAN_DIR)/boolean.h
+
+
 
 ##########
 # C Code #
@@ -95,6 +103,7 @@ SRCS_C += $(AST_KIND_C)
 SRCS_C += $(CLI_C)
 SRCS_C += $(SYM_C)
 SRCS_C += $(DARR_C)
+SRCS_C += $(BOOLEAN_C)
 # SRCS_C += $(IR_C)
 # SRCS_C += $(CG_C)
 
@@ -130,6 +139,7 @@ $(MAIN_C): $(SYM_H)
 $(MAIN_C): $(IR_H)
 $(MAIN_C): $(CG_H)
 $(MAIN_C): $(DARR_H)
+$(MAIN_C): $(BOOLEAN_H)
 
 $(LEXER_UTIL_H): $(PARSER_H) $(LEXER_H)
 $(CLI_C): $(CLI_H)
@@ -137,6 +147,7 @@ $(SYM_C): $(SYM_H)
 $(IR_C): $(IR_H)
 $(CG_C): $(CG_H)
 $(DARR_C): $(DARR_H)
+$(BOOLEAN_C): $(BOOLEAN_H)
 
 
 clean:

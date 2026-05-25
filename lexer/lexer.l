@@ -16,6 +16,9 @@ struct lxr_ctx;
 
 cont        \\[[:blank:]]*\n
 
+TRUE_STR  True
+FALSE_STR False 
+
 %%
 
 [[:blank:]]+             { lxr_process(LEX_BLNK, yylval, yylloc, yyscanner); }
@@ -23,8 +26,8 @@ cont        \\[[:blank:]]*\n
 
 "print"                  { lxr_process(PRNT, yylval, yylloc, yyscanner); }
 
-"True"                   { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }
-"False"                  { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }
+{TRUE_STR}               { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }
+{FALSE_STR}              { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }
 
 [[:digit:]]+             { lxr_process(INTEGER, yylval, yylloc, yyscanner); }
 
