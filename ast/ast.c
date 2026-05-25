@@ -8,6 +8,20 @@
 #include <string.h>
 
 
+/*******************
+ * Error Reporting *
+ *******************/
+static void
+ast_print_src(struct ast_src_loc loc, char * src)
+{
+    fprintf(stderr, "ine %d, col %d-%d: %s\n",
+            loc.first_line,
+            loc.first_column,
+            loc.last_column,
+            src);
+}
+
+
 /***************
  * AST Context *
  ***************/
@@ -46,17 +60,23 @@ ast_ctx_init(struct cli_ast_opts opts)
  * AST Node Constructors *
  *************************/
 struct ast_node *
-ast_ctr_integer(int val, struct ast_node * current_block)
+ast_ctr_integer(int val,
+                struct ast_node * current_block,
+                struct ast_src_loc loc,
+                char * src)
 {
     struct ast_node * node = NULL;
     if (!(node = malloc(sizeof(struct ast_node)))) {
-        fprintf(stderr, "Faileda llocating node.\n");
+        fprintf(stderr, "Failed allocating node.\n");
+        ast_print_src(loc, src);
         goto error;
     }
 
     *node = (struct ast_node) {
         .type = AST_SCALAR,
         .current_block = current_block,
+        .loc = loc,
+        .src = src,
         .scalar = {
             .type = AST_INTEGER,
             .integer = val,
@@ -70,17 +90,23 @@ error:
 }
 
 struct ast_node *
-ast_ctr_boolean(bool val, struct ast_node * current_block)
+ast_ctr_boolean(bool val,
+                struct ast_node * current_block,
+                struct ast_src_loc loc,
+                char * src)
 {
     struct ast_node * node = NULL;
     if (!(node = malloc(sizeof(struct ast_node)))) {
         fprintf(stderr, "Failed allocating node.\n");
+        ast_print_src(loc, src);
         goto error;
     }
 
     *node = (struct ast_node) {
         .type = AST_SCALAR,
         .current_block = current_block,
+        .loc = loc,
+        .src = src,
         .scalar = {
             .type = AST_BOOLEAN,
             .boolean = val,
@@ -126,17 +152,22 @@ error:
 
 struct ast_node *
 ast_ctr_prnt(struct ast_node * subexpr,
-             struct ast_node * current_block)
+             struct ast_node * current_block,
+             struct ast_src_loc loc,
+             char * src)
 {
     struct ast_node * node = NULL;
     if (!(node = malloc(sizeof(struct ast_node)))) {
         fprintf(stderr, "Failed allocating node.\n");
+        ast_print_src(loc, src);
         goto error;
     }
 
     node[0] = (struct ast_node) {
         .type = AST_PRNT,
         .current_block = current_block,
+        .loc = loc,
+        .src = src,
         .print.child = subexpr,
     };
     return node;
@@ -174,17 +205,22 @@ error:
 
 struct ast_node *
 ast_ctr_punctuator(enum ast_punctuator_type type,
-                   struct ast_node * current_block)
+                   struct ast_node * current_block,
+                   struct ast_src_loc loc,
+                   char * src)
 {
     struct ast_node * node = NULL;
     if (!(node = malloc(sizeof(struct ast_node)))) {
         fprintf(stderr, "Failed allocating node.\n");
+        ast_print_src(loc, src);
         goto error;
     }
 
     node[0] = (struct ast_node) {
         .type = AST_PUNCTUATOR,
         .current_block = current_block,
+        .loc = loc,
+        .src = src,
         .punctuator = type,
     };
     return node;
@@ -193,6 +229,7 @@ error:
     if (node) free(node);
     return NULL;
 }
+
 
 /*********************
  * Text tree Drawing *
@@ -262,7 +299,7 @@ ast_print_texttree_r(struct ast_node *root,
             fprintf(strm, "%s: %s\n", astk_scalar_to_str(AST_BOOLEAN), bool_to_str(root->scalar.boolean));
             break;
         }
-        break;  /* was missing — fell through into AST_BINOP */
+        break;
     case AST_BINOP:
         fprintf(strm, "%s: %s\n", astk_kind_to_str(AST_BINOP), astk_binop_to_str(root->binop.op));
         ast_print_texttree_r(root->binop.left,  strm, prefix, plen + clen, 0);
@@ -316,7 +353,7 @@ ast_to_dot(struct ast_node * root,
             fprintf(strm, "  node%d [label=\"BOOLEAN: %s\"];\n", my_id, bool_to_str(root->scalar.boolean));
             break;
         }
-        break;  /* was missing — fell through into AST_BINOP */
+        break;
     case AST_BINOP:
         fprintf(strm, "  node%d [label=\"BINOP: %s\"];\n", my_id, astk_binop_to_str(root->binop.op));
         break;
@@ -393,6 +430,7 @@ ast_delete(struct ast_node ** root)
         break;
     }
     free(*root);
+    free((*root)->src);
     *root = NULL;
 }
 

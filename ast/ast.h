@@ -23,6 +23,13 @@ struct ast_ctx ast_ctx_init(struct cli_ast_opts opts);
 /*****************
  * AST Structure *
  *****************/
+struct ast_src_loc {
+    int first_line;
+    int first_column;
+    int last_line;
+    int last_column;
+};
+
 struct ast_scalar_node {
     enum ast_scalar_type type;
     union {
@@ -49,6 +56,8 @@ struct ast_block_node {
 struct ast_node {
     enum ast_kind type;
     struct ast_node * current_block;
+    struct ast_src_loc loc;
+    char * src;
     union {
         struct ast_scalar_node scalar;
         struct ast_binop_node binop;
@@ -68,8 +77,17 @@ struct ast_ctx ast_ctx_init(struct cli_ast_opts opts);
 /************************************
  * AST Constructors and Destructors *
  ************************************/
-struct ast_node * ast_ctr_integer(int val, struct ast_node * current_block);
-struct ast_node * ast_ctr_boolean(bool val, struct ast_node * current_block);
+struct ast_node *
+ast_ctr_integer(int val,
+                struct ast_node * current_block,
+                struct ast_src_loc loc,
+                char * src);
+
+struct ast_node *
+ast_ctr_boolean(bool val,
+                struct ast_node * current_block,
+                struct ast_src_loc loc,
+                char * src);
 
 struct ast_node *
 ast_ctr_binop(enum ast_binop_type op,
@@ -79,14 +97,18 @@ ast_ctr_binop(enum ast_binop_type op,
 
 struct ast_node *
 ast_ctr_prnt(struct ast_node * subexpr,
-             struct ast_node * current_block);
+             struct ast_node * current_block,
+             struct ast_src_loc loc,
+             char * src);
 
 struct ast_node *
 ast_ctr_block(struct ast_node * parent_block);
 
 struct ast_node *
 ast_ctr_punctuator(enum ast_punctuator_type type,
-                   struct ast_node * current_block);
+                   struct ast_node * current_block,
+                   struct ast_src_loc loc,
+                   char * src);
 
 void ast_delete(struct ast_node ** root);
 void ast_finalize(struct ast_node * root);

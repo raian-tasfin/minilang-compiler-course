@@ -18,7 +18,7 @@ cont        \\[[:blank:]]*\n
 
 TRUE_STR  True
 FALSE_STR False
- 
+
 %%
 
 [[:blank:]]+             { lxr_process(LEX_BLNK, yylval, yylloc, yyscanner); }

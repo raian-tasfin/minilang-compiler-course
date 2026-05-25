@@ -14,6 +14,20 @@ yyerror(YYLTYPE * loc,
         void * scanner,
         struct ast_node ** ast_root,
         const char * s);
+
+ char *yyget_text(void *yyscanner);
+
+static inline struct ast_src_loc
+ast_loc_from_bison(YYLTYPE loc)
+{
+    return (struct ast_src_loc) {
+        .first_line   = loc.first_line,
+        .first_column = loc.first_column,
+        .last_line    = loc.last_line,
+        .last_column  = loc.last_column
+    };
+}
+
 }
 
 %define api.pure full
@@ -82,14 +96,14 @@ yyerror(YYLTYPE * loc,
 %%
 
 program:
-  %empty           { $$ = ast_ctr_block(NULL); *ast_root = $$; }
+            %empty           { $$ = ast_ctr_block(NULL); *ast_root = $$; }
 | program NEWLINE  { $$ = $1; }
 | program stmt     { darr_push_back(($1)->block.statements, &$2); $$ = $1; *ast_root = $$; }
 ;
 
 stmt:
   expr                 { $$ = $1; }
-| PRNT LPRN expr RPRN  { $$ = ast_ctr_prnt($3, NULL); }
+| PRNT LPRN expr RPRN  { $$ = ast_ctr_prnt($3, NULL, ast_loc_from_bison(@1), strdup(yyget_text(scanner))); }
 | block                { $$ = $1; }
 ;
 
@@ -108,8 +122,8 @@ block_body:
 ;
 
 expr:
-  INTEGER           { $$ = ast_ctr_integer($1, NULL); }
-| BOOLEAN           { $$ = ast_ctr_boolean($1, NULL); }
+  INTEGER           { $$ = ast_ctr_integer($1, NULL, ast_loc_from_bison(@1), strdup(yyget_text(scanner))); }
+| BOOLEAN           { $$ = ast_ctr_boolean($1, NULL, ast_loc_from_bison(@1), strdup(yyget_text(scanner))); }
 | expr ADD expr     { $$ = ast_ctr_binop(astk_binop_from_tok(ADD), $1, $3, NULL); }
 | expr SUB expr     { $$ = ast_ctr_binop(astk_binop_from_tok(SUB), $1, $3, NULL); }
 | expr MUL expr     { $$ = ast_ctr_binop(astk_binop_from_tok(MUL), $1, $3, NULL); }
