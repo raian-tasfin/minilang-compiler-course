@@ -23,6 +23,9 @@ cont        \\[[:blank:]]*\n
 
 "print"                  { lxr_process(PRNT, yylval, yylloc, yyscanner); }
 
+"True"                   { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }
+"False"                  { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }
+
 [[:digit:]]+             { lxr_process(INTEGER, yylval, yylloc, yyscanner); }
 
 "+"                      { lxr_process(ADD, yylval, yylloc, yyscanner); }
@@ -30,6 +33,10 @@ cont        \\[[:blank:]]*\n
 "*"                      { lxr_process(MUL, yylval, yylloc, yyscanner); }
 "/"                      { lxr_process(DIV, yylval, yylloc, yyscanner); }
 "%"                      { lxr_process(MOD, yylval, yylloc, yyscanner); }
+
+"&&"                     { lxr_process(AND, yylval, yylloc, yyscanner); }
+"||"                     { lxr_process(OR, yylval, yylloc, yyscanner); }
+"^^"                     { lxr_process(XOR, yylval, yylloc, yyscanner); }
 
 "("                      { lxr_process(LPRN, yylval, yylloc, yyscanner); }
 ")"                      { lxr_process(RPRN, yylval, yylloc, yyscanner); }

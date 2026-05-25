@@ -1,4 +1,4 @@
-print(1)
+print(1 + True && False)
 print(2)
 {
     print(3)

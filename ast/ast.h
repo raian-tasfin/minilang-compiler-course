@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include "ast_kind.h"
 #include "../cli/cli.h"
+#include "../darr/darr.h"
 
 #ifndef AST_H
 #define AST_H 1
@@ -28,22 +29,24 @@ struct ast_binop_node {
     struct ast_node * right;
 };
 
-struct ast_block_node {
-    struct ast_node * child;
-    struct ast_node * parent;
-};
-
 struct ast_print_node {
     struct ast_node * child;
 };
 
+struct ast_block_node {
+    struct darr * statements;
+    struct ast_node * parent_block;
+};
+
 struct ast_node {
     enum ast_kind type;
+    struct ast_node * current_block;
     union {
         struct ast_binop_node binop;
-        struct ast_block_node block;
         struct ast_print_node print;
+        struct ast_block_node block;
         int integer;
+        bool boolean;
         enum ast_punctuator_type punctuator;
     };
 };
@@ -58,12 +61,28 @@ struct ast_ctx ast_ctx_init(struct cli_ast_opts opts);
 /************************************
  * AST Constructors and Destructors *
  ************************************/
-struct ast_node * ast_ctr_integer(int val);
-struct ast_node * ast_ctr_binop(enum ast_binop_type op, struct ast_node * left, struct ast_node * right);
-struct ast_node * ast_ctr_prnt(struct ast_node * subexpr);
-struct ast_node * ast_ctr_block(struct ast_node * parent, struct ast_node * child);
-struct ast_node * ast_ctr_punctuator(enum ast_punctuator_type type);
+struct ast_node * ast_ctr_integer(int val, struct ast_node * current_block);
+struct ast_node * ast_ctr_boolean(bool val, struct ast_node * current_block);
+
+struct ast_node *
+ast_ctr_binop(enum ast_binop_type op,
+              struct ast_node * left,
+              struct ast_node * right,
+              struct ast_node * current_block);
+
+struct ast_node *
+ast_ctr_prnt(struct ast_node * subexpr,
+             struct ast_node * current_block);
+
+struct ast_node *
+ast_ctr_block(struct ast_node * parent_block);
+
+struct ast_node *
+ast_ctr_punctuator(enum ast_punctuator_type type,
+                   struct ast_node * current_block);
+
 void ast_delete(struct ast_node ** root);
+void ast_finalize(struct ast_node * root);
 
 
 /************************

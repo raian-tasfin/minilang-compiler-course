@@ -1,7 +1,9 @@
 %code requires {
 #include <stdio.h>
+#include <stdbool.h>
 #include "../ast/ast.h"
 #include "../ast/ast_kind.h"
+#include "../darr/darr.h"
 }
 
 %code provides {
@@ -27,7 +29,6 @@ yyerror(YYLTYPE * loc,
 /************************
  * Lexer-Control Tokens *
  ************************/
-/* These are not used by the parser, only by the lexer. */
 %token LEX_BLNK
 %token LEX_CONT
 %token NEWLINE
@@ -37,12 +38,18 @@ yyerror(YYLTYPE * loc,
 /**********
  * Tokens *
  **********/
-%token <int> INTEGER
+%token <int>  INTEGER
+%token <bool> BOOLEAN
 %token ADD
 %token SUB
 %token MUL
 %token DIV
 %token MOD
+
+%token AND
+%token OR
+%token XOR
+
 %token LPRN
 %token RPRN
 %token PRNT
@@ -53,9 +60,15 @@ yyerror(YYLTYPE * loc,
 /*******************************
  * Precedence & Associativity  *
  *******************************/
+
+/* Lowest precedence */
+%left OR
+%left XOR
+%left AND
+
+/* Arithmetic */
 %left ADD SUB
 %left MUL DIV MOD
-
 
 /*******************************
  * Nonterminal Semantic Types  *
@@ -69,70 +82,48 @@ yyerror(YYLTYPE * loc,
 %%
 
 program:
-  %empty           { $$ = NULL; }
+  %empty           { $$ = ast_ctr_block(NULL); *ast_root = $$; }
 | program NEWLINE  { $$ = $1; }
-| program stmt     { $$ = ast_ctr_block($1, $2); *ast_root = $$; }
+| program stmt     { darr_push_back(($1)->block.statements, &$2); $$ = $1; *ast_root = $$; }
 ;
 
 stmt:
   expr                 { $$ = $1; }
-| PRNT LPRN expr RPRN  { $$ = ast_ctr_prnt($3); }
+| PRNT LPRN expr RPRN  { $$ = ast_ctr_prnt($3, NULL); }
 | block                { $$ = $1; }
 ;
 
-/*
- * A block is a linked list of block nodes.
- * Each block node: .parent = previous node in list (or NULL if first)
- *                  .child  = the stmt at this position
- *
- * { stmt1 \n stmt2 \n stmt3 }  builds:
- *
- *   block(parent=block(parent=block(parent=NULL, child=stmt1),
- *                      child=stmt2),
- *         child=stmt3)
- *
- * Nested blocks are handled naturally: a stmt can itself be a block,
- * so { { inner } \n stmt } gives a block whose child is another block.
- */
+
 block:
-  LBRACE RBRACE
-      { $$ = ast_ctr_block(NULL, NULL); }
-| LBRACE NEWLINE RBRACE
-      { $$ = ast_ctr_block(NULL, NULL); }
-| LBRACE block_body RBRACE
-      { $$ = $2; }
-| LBRACE NEWLINE block_body RBRACE
-      { $$ = $3; }
+  LBRACE RBRACE                       { $$ = ast_ctr_block(NULL); }
+| LBRACE NEWLINE RBRACE               { $$ = ast_ctr_block(NULL); }
+| LBRACE block_body RBRACE            { $$ = $2; }
+| LBRACE NEWLINE block_body RBRACE    { $$ = $3; }
 ;
 
 block_body:
-  stmt
-      { $$ = ast_ctr_block(NULL, $1); }
-| block_body NEWLINE stmt
-      { $$ = ast_ctr_block($1, $3); }
-| block_body NEWLINE
-      { $$ = $1; }
+  stmt                       { $$ = ast_ctr_block(NULL); darr_push_back($$->block.statements, &$1); }
+| block_body NEWLINE stmt    { darr_push_back(($1)->block.statements, &$3); $$ = $1; }
+| block_body NEWLINE         { $$ = $1; }
 ;
 
 expr:
-  INTEGER           { $$ = ast_ctr_integer($1); }
-| expr ADD expr     { $$ = ast_ctr_binop(astk_binop_from_tok(ADD), $1, $3); }
-| expr SUB expr     { $$ = ast_ctr_binop(astk_binop_from_tok(SUB), $1, $3); }
-| expr MUL expr     { $$ = ast_ctr_binop(astk_binop_from_tok(MUL), $1, $3); }
-| expr DIV expr     { $$ = ast_ctr_binop(astk_binop_from_tok(DIV), $1, $3); }
-| expr MOD expr     { $$ = ast_ctr_binop(astk_binop_from_tok(MOD), $1, $3); }
+  INTEGER           { $$ = ast_ctr_integer($1, NULL); }
+| BOOLEAN           { $$ = ast_ctr_boolean($1, NULL); }
+| expr ADD expr     { $$ = ast_ctr_binop(astk_binop_from_tok(ADD), $1, $3, NULL); }
+| expr SUB expr     { $$ = ast_ctr_binop(astk_binop_from_tok(SUB), $1, $3, NULL); }
+| expr MUL expr     { $$ = ast_ctr_binop(astk_binop_from_tok(MUL), $1, $3, NULL); }
+| expr DIV expr     { $$ = ast_ctr_binop(astk_binop_from_tok(DIV), $1, $3, NULL); }
+| expr MOD expr     { $$ = ast_ctr_binop(astk_binop_from_tok(MOD), $1, $3, NULL); }
+| expr AND expr     { $$ = ast_ctr_binop(astk_binop_from_tok(AND), $1, $3, NULL); }
+| expr OR  expr     { $$ = ast_ctr_binop(astk_binop_from_tok(OR), $1, $3, NULL); }
+| expr XOR expr     { $$ = ast_ctr_binop(astk_binop_from_tok(XOR), $1, $3, NULL); }
 | LPRN expr RPRN    { $$ = $2; }
 ;
 
 %%
 
-/**
- * DO NOT DELETE forward declaration.
- * otherwise we would have to include lex.yy.h making circular
- * dependency
- */
 char *yyget_text(void *yyscanner);
-
 
 void
 yyerror(YYLTYPE * loc,

@@ -24,6 +24,7 @@ int main(int argc, char * const * argv)
     int exit_status = EXIT_SUCCESS;
     /* FILE * cg_out = NULL; */
 
+
     /*********************
      * CLI Options Setup *
      *********************/
@@ -67,6 +68,12 @@ int main(int argc, char * const * argv)
         exit_status = EXIT_FAILURE;
         goto destruct;
     }
+
+
+    /*******************************
+     * AST Construction (Finalize) *
+     *******************************/
+    ast_finalize(ast_root);
 
 
    /*****************

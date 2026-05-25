@@ -3,6 +3,7 @@
  * when lexer_util.h is processed. */
 #include "lex.yy.h"
 #include <stdio.h>
+#include <string.h>
 #include "lexer_util.h"
 
 
@@ -17,6 +18,13 @@ lxr_print(struct lxr_ctx * ctx, const char *fmt, ...)
     va_start(args, fmt);
     vfprintf(ctx->rprt, fmt, args);
     va_end(args);
+}
+
+static bool
+lxr_tok_to_bool(char * tok)
+{
+    if (strcmp(tok, "True") == 0) return true;
+    return false;
 }
 
 
@@ -60,19 +68,23 @@ lxr_toktostr(int token_type)
 {
     switch (token_type) {
     case ADD:         return "ADD";
+    case SUB:         return "SUB";
     case DIV:         return "DIV";
+    case MUL:         return "MUL";
+    case MOD:         return "MOD";
+    case AND:         return "AND";
+    case OR:          return "OR";
+    case XOR:         return "XOR";
     case INTEGER:     return "INTEGER";
+    case BOOLEAN:     return "BOOLEAN";
     case LEX_BLNK:    return "LEX_BLNK";
     case LEX_CONT:    return "LEX_CONT";
     case LEX_ERR:     return "LEX_ERR";
     case LBRACE:      return "LBRACE";
     case LPRN:        return "LPRN";
-    case MOD:         return "MOD";
-    case MUL:         return "MUL";
     case NEWLINE:     return "NEWLINE";
     case RBRACE:      return "RBRACE";
     case RPRN:        return "RPRN";
-    case SUB:         return "SUB";
     case PRNT:        return "PRNT";
     default:          return "UNIDENTIFIED";
     }
@@ -86,6 +98,8 @@ lxr_print_token(int token_type,
     lxr_print(ctx, "%s", lxr_toktostr(token_type));
     if (token_type == INTEGER && yylval) {
         lxr_print(ctx, ": %d", yylval->INTEGER);
+    } else if (token_type == BOOLEAN && yylval) {
+        lxr_print(ctx, ": %s", yylval->BOOLEAN ? "True": "False");
     }
     lxr_print(ctx, "\n");
 }
@@ -130,6 +144,10 @@ lxr_process_proc(int token_type,
         if (yylval) yylval->INTEGER = atoi(yytext);
         lxr_print_token(INTEGER, yylval, ctx);
         return INTEGER;
+    case BOOLEAN:
+        if (yylval) yylval->BOOLEAN = lxr_tok_to_bool(yytext);
+        lxr_print_token(BOOLEAN, yylval, ctx);
+        return BOOLEAN;
 
         /* Punctuators */
     case ADD:  lxr_print_token(ADD, yylval, ctx); return ADD;
@@ -138,6 +156,10 @@ lxr_process_proc(int token_type,
     case DIV:  lxr_print_token(DIV, yylval, ctx); return DIV;
     case MOD:  lxr_print_token(MOD, yylval, ctx); return MOD;
     case PRNT: lxr_print_token(PRNT, yylval, ctx); return PRNT;
+    case AND: lxr_print_token(AND, yylval, ctx); return AND;
+    case OR:  lxr_print_token(OR,  yylval, ctx); return OR;
+    case XOR: lxr_print_token(XOR, yylval, ctx); return XOR;
+
 
     case LPRN:
         if (ctx) ctx->open_parens++;
@@ -177,13 +199,4 @@ lxr_process_proc(int token_type,
     }
 
     return LEX_ERR;
-}
-
-
-void
-ast_print_preorder(struct ast_node * root, FILE * strm)
-{
-    if (strm == NULL) return;
-    if (root == NULL) return;
-
 }

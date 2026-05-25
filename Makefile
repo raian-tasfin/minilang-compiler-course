@@ -94,9 +94,9 @@ SRCS_C += $(AST_C)
 SRCS_C += $(AST_KIND_C)
 SRCS_C += $(CLI_C)
 SRCS_C += $(SYM_C)
+SRCS_C += $(DARR_C)
 # SRCS_C += $(IR_C)
 # SRCS_C += $(CG_C)
-# SRCS_C += $(DARR_C)
 
 OBJS   = $(SRCS_C:%.c=%.o)
 
