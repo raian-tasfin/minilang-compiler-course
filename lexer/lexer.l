@@ -17,8 +17,8 @@ struct lxr_ctx;
 cont        \\[[:blank:]]*\n
 
 TRUE_STR  True
-FALSE_STR False 
-
+FALSE_STR False
+ 
 %%
 
 [[:blank:]]+             { lxr_process(LEX_BLNK, yylval, yylloc, yyscanner); }
