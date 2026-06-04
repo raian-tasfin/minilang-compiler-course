@@ -27,6 +27,7 @@ astk_kind_to_str(enum ast_kind kind)
     case AST_PRNT:       return "AST_PRNT";
     case AST_BLOCK:      return "AST_BLOCK";
     case AST_PUNCTUATOR: return "AST_PUNCTUATOR";
+    default: return "UNKNOWN";
     }
 }
 

@@ -47,12 +47,21 @@ AST_C   = $(AST_DIR)/ast.c
 AST_KIND_H   = $(AST_DIR)/ast_kind.h
 AST_KIND_C   = $(AST_DIR)/ast_kind.c
 
+
 ################
 # Symbol Table #
 ################
 SYM_DIR = symtable
 SYM_C   = $(SYM_DIR)/symtable.c
 SYM_H   = $(SYM_DIR)/symtable.h
+
+
+#####################
+# Semantic Analyzer #
+#####################
+SEMAN_DIR = seman
+SEMAN_C = $(SEMAN_DIR)/seman.c
+SEMAN_H = $(SEMAN_DIR)/seman.h
 
 
 ###############################
@@ -104,6 +113,7 @@ SRCS_C += $(CLI_C)
 SRCS_C += $(SYM_C)
 SRCS_C += $(DARR_C)
 SRCS_C += $(BOOLEAN_C)
+SRCS_C += $(SEMAN_C)
 # SRCS_C += $(IR_C)
 # SRCS_C += $(CG_C)
 
@@ -140,6 +150,7 @@ $(MAIN_C): $(IR_H)
 $(MAIN_C): $(CG_H)
 $(MAIN_C): $(DARR_H)
 $(MAIN_C): $(BOOLEAN_H)
+$(MAIN_C): $(SEMAN_H)
 
 $(LEXER_UTIL_H): $(PARSER_H) $(LEXER_H)
 $(CLI_C): $(CLI_H)
@@ -148,6 +159,7 @@ $(IR_C): $(IR_H)
 $(CG_C): $(CG_H)
 $(DARR_C): $(DARR_H)
 $(BOOLEAN_C): $(BOOLEAN_H)
+$(SEMAN_C): $(SEMAN_H)
 
 
 clean:

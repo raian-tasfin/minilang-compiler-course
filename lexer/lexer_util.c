@@ -102,14 +102,14 @@ void lxr_updt_loc(YYLTYPE *yylloc, void *yyscanner)
     int yyleng   = yyget_leng(yyscanner);
     char *yytext = yyget_text(yyscanner);
     if (yylloc->last_line == 0) {
-        yylloc->last_line = 1;
-        yylloc->last_column = 1;
+        yylloc->last_line   = 1;
+        yylloc->last_column = 0;
     }
-    yylloc->first_line = yylloc->last_line;
+    yylloc->first_line   = yylloc->last_line;
     yylloc->first_column = yylloc->last_column;
     if (strchr(yytext, '\n')) {
         yylloc->last_line++;
-        yylloc->last_column = 1;
+        yylloc->last_column = 0;
     } else {
         yylloc->last_column += yyleng;
     }

@@ -29,6 +29,13 @@ struct ast_src_loc {
     int last_line;
     int last_column;
 };
+#define AST_SRC_LOC_FMT "%d:%d-%d:%d"
+#define AST_SRC_LOC_EXP(loc)     \
+    (loc).first_line,            \
+        (loc).first_column,      \
+        (loc).last_line,         \
+        (loc).last_column
+
 
 struct ast_scalar_node {
     enum ast_scalar_type type;
@@ -119,7 +126,6 @@ void ast_finalize(struct ast_node * root);
  ************************/
 void ast_print_texttree(struct ast_node *root, FILE *strm);
 void ast_print_dot(struct ast_node * root, FILE * strm);
-
 
 #endif
 // AST_H

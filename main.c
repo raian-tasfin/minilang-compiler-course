@@ -9,6 +9,7 @@
 #include "intrep/interp.h"
 #include "cg/cg.h"
 #include "darr/darr.h"
+#include "seman/seman.h"
 
 
 int main(int argc, char * const * argv)
@@ -83,6 +84,15 @@ int main(int argc, char * const * argv)
     if (ast_ctx.dot) ast_print_dot(ast_root, ast_ctx.dot);
     if (ast_ctx.text) ast_print_texttree(ast_root, ast_ctx.text);
 
+
+    /*********************
+     * Semantic Analysis *
+     *********************/
+    seman_type_check(ast_root);
+    /* if (!seman_type_check(ast_root)) { */
+        /* exit_status = EXIT_FAILURE; */
+        /* goto destruct; */
+    /* } */
 
 
    /* /\******************************* */
