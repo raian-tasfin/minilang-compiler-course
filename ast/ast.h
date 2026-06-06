@@ -56,7 +56,7 @@ struct ast_print_node {
 };
 
 struct ast_block_node {
-    struct darr * statements;
+    struct darr * statements;       // array of ast_node's
     struct ast_node * parent_block;
 };
 

@@ -1,11 +1,13 @@
 #include <stddef.h>
 #include "../ast/ast.h"
 
-#ifndef _H
-#define _H 1
+#ifndef INTERP_H
+#define INTERP_H 1
 
-enum ir_type {
-    IR_INTEGER,
+
+enum ir_unit_type {
+    IR_BLOCK,
+    IR_STMT,
 };
 
 enum ir_stmt_type {
@@ -14,72 +16,134 @@ enum ir_stmt_type {
     IR_PRINT,
 };
 
+
+/********************
+ * Binary Operators *
+ ********************/
 enum ir_binop {
     IR_ADD,
     IR_SUB,
     IR_MUL,
     IR_DIV,
     IR_MOD,
+    IR_AND,
+    IR_OR,
+    IR_XOR,
 };
 
+
+/**********
+ * Scalar *
+ **********/
+enum ir_scalar_type {
+    IR_INTEGER,
+    IR_BOOLEAN,
+};
+
+struct ir_scalar {
+    enum ir_scalar_type type;
+    union {
+        bool boolean;
+        int  integer;
+    };
+};
+
+
+/**********
+ * Symbol *
+ **********/
 struct ir_sym {
+    enum ir_scalar_type type;
     char src_name[64];
     bool src_var;
-    int id;
-    enum ir_type type;
+    int  id;
 };
 
 
-
-struct ir_arg {
-    enum ir_type type;
-    struct ir_sym * sym;
+/*********************
+ * IR Value Argument *
+ *********************/
+/* Values in this language can be immediate values (scalar constants)
+ * or can be inferred from variables.
+ */
+enum ir_val_type {
+    IR_SCALAR,
+    IR_SYMBOL,
 };
 
-struct ir_stmt_const_assignment {
-    struct ir_sym * dest;
-    int val;
+struct ir_val {
+    enum ir_val_type type;
+    union {
+        struct ir_scalar scalar;
+        struct ir_sym *  symbol;
+    };
 };
 
-struct ir_stmt_binop_assignment {
+
+/**************
+ * Statements *
+ **************/
+struct ir_stmt_const_asn {
+    struct ir_sym *  dest;
+    struct ir_scalar scalar;
+};
+
+struct ir_stmt_binop_asn {
     enum ir_binop op;
-    struct ir_sym * dst;
-    struct ir_arg arg1;
-    struct ir_arg arg2;
+    struct ir_sym * dest;
+    struct ir_val   val1;
+    struct ir_val   val2;
 };
 
-struct ir_stmt_prnt {
-    struct ir_arg arg;
+struct ir_stmt_print {
+    struct ir_val val;
 };
 
 struct ir_stmt {
     enum ir_stmt_type type;
     union {
-        struct ir_stmt_const_assignment const_asn;
-        struct ir_stmt_binop_assignment binop_asn;
-        struct ir_stmt_prnt prnt;
+        struct ir_stmt_const_asn const_asn;
+        struct ir_stmt_binop_asn binop_asn;
+        struct ir_stmt_print     print;
     };
 };
 
-struct ir_block {
-    struct ir_stmt * stmts;
-    int size;
-    int cap;
+struct ir_unit {
+    enum ir_unit_type type;
+    union {
+        struct darr * block; // array of ir_units.
+        struct ir_stmt stmt;
+    };
 };
 
-struct ir_block *
-ir_block_generate(struct ast_node * root);
 
+/****************
+ * IR Generator *
+ ****************/
+/**
+ * An IR program is an array of units.
+ */
+struct darr * // array of unitsb
+ir_prog_generate(struct ast_node * root);
+
+
+
+/***********
+ * Context *
+ ***********/
 struct ir_ctx {
     FILE * rprt;
     bool err;
 };
 
+
 struct ir_ctx
 ir_ctx_init(struct cli_opts * cliopts);
 
+
 void
-ir_print(struct ir_ctx * ctx, struct ir_block * block);
+ir_print(struct ir_ctx * ctx, struct ir_unit * prog);
+
 
 #endif
-// _H
+// INTERP_H

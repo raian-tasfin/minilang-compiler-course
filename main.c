@@ -16,7 +16,7 @@ int main(int argc, char * const * argv)
 {
     struct cli_opts cliopts = {0};
     struct lxr_ctx lxr_ctx = {0};
-    /* struct ir_ctx ir_ctx = {0}; */
+    struct ir_ctx ir_ctx = {0};
     yyscan_t scanner = NULL;
     struct ast_node * ast_root = NULL;
     struct ast_ctx ast_ctx = {0};
@@ -89,26 +89,26 @@ int main(int argc, char * const * argv)
      * Semantic Analysis *
      *********************/
     seman_type_check(ast_root);
-    /* if (!seman_type_check(ast_root)) { */
-        /* exit_status = EXIT_FAILURE; */
-        /* goto destruct; */
-    /* } */
+    if (!seman_type_check(ast_root)) {
+        exit_status = EXIT_FAILURE;
+        goto destruct;
+    }
 
 
-   /* /\******************************* */
-   /*  * Intermediate Representation * */
-   /*  *******************************\/ */
-   /*  struct ir_block * ir_block = ir_block_generate(ast_root); */
+   /*******************************
+    * Intermediate Representation *
+    *******************************/
+    struct darr * ir_program = ir_prog_generate(ast_root) ;
 
-   /*  /\**************** */
-   /*   * IR Reporting * */
-   /*   ****************\/ */
-   /*  ir_ctx = ir_ctx_init(&cliopts); */
-   /*  if (ir_ctx.err) { */
-   /*      exit_status = EXIT_FAILURE; */
-   /*      goto destruct; */
-   /*  } */
-   /*  ir_print(&ir_ctx, ir_block); */
+    /****************
+     * IR Reporting *
+     ****************/
+    ir_ctx = ir_ctx_init(&cliopts);
+    if (ir_ctx.err) {
+        exit_status = EXIT_FAILURE;
+        goto destruct;
+    }
+    ir_print(&ir_ctx, ir_program);
 
    /*  /\******************* */
    /*   * Code Generation * */

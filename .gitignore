@@ -4,3 +4,4 @@ minilang
 parser/parser.tab.*
 report/*
 *.mlo
+*.d

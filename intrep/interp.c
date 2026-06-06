@@ -1,14 +1,50 @@
 #include "interp.h"
-#include "../ast/ast_kind.h"
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "../darr/darr.h"
+#include "../boolean/boolean.h"
 #include <stdarg.h>
+
+enum ir_scalar_type
+ir_scalar_type_from_ast(enum ast_scalar_type type)
+{
+    switch (type) {
+    case AST_BOOLEAN: return IR_BOOLEAN;
+    case AST_INTEGER: return IR_INTEGER;
+    }
+}
+
+enum ir_binop
+ir_binop_from_ast(enum ast_binop_type op)
+{
+    switch (op) {
+    case AST_ADD: return IR_ADD;
+    case AST_SUB: return IR_SUB;
+    case AST_MUL: return IR_MUL;
+    case AST_DIV: return IR_DIV;
+    case AST_MOD: return IR_MOD;
+    case AST_AND: return IR_AND;
+    case AST_OR:  return IR_OR;
+    case AST_XOR: return IR_XOR;
+    }
+}
+
+char *
+ir_opch(enum ir_binop op)
+{
+    switch (op) {
+    case IR_ADD: return "+" ;
+    case IR_SUB: return "-" ;
+    case IR_MUL: return "*" ;
+    case IR_DIV: return "/" ;
+    case IR_MOD: return "%" ;
+    case IR_AND: return "&&";
+    case IR_OR : return "||";
+    case IR_XOR: return "^" ;
+    }
+}
 
 
 struct ir_sym *
-ir_sym_new(char * name, enum ir_type type, int * var_id)
+ir_sym_new(char * name, enum ir_scalar_type type, int * var_id)
 {
     struct ir_sym * new = malloc(sizeof(struct ir_sym));
     new[0] = (struct ir_sym){
@@ -22,118 +58,132 @@ ir_sym_new(char * name, enum ir_type type, int * var_id)
     return new;
 }
 
-struct ir_stmt *
-ir_stmt_binop_new(enum ir_binop op,
-                  struct ir_sym * dst,
-                  struct ir_arg arg1,
-                  struct ir_arg arg2)
-{
-    struct ir_stmt * new = malloc(sizeof(struct ir_stmt));
-    *new = (struct ir_stmt) {
-        .type = IR_BINOP_ASSIGNMENT,
-        .binop_asn = {
-            .dst = dst,
-            .arg1 = arg1,
-            .arg2 = arg2,
-        },
-    };
-    return new;
-}
 
-void
-ir_block_push(struct ir_stmt stmt, struct ir_block * block)
-{
-    if (block->size == block->cap) {
-        block->cap = (5 + block->cap) * 2;
-        block->stmts
-            = realloc(block->stmts,
-                      block->cap * sizeof(struct ir_stmt));
-    }
-    block->stmts[block->size++] = stmt;
-}
-
-enum ir_binop
-ir_astk_to_ir_binop(enum ast_kind type)
-{
-    switch (type) {
-    case AST_ADD: return IR_ADD;
-    case AST_SUB: return IR_SUB;
-    case AST_MUL: return IR_MUL;
-    case AST_DIV: return IR_DIV;
-    case AST_MOD: return IR_MOD;
-    };
-}
-
-
-
-
-struct ir_arg
-ir_block_generate_rec(struct ast_node * node,
-                      int * var_id,
-                      struct ir_block * block)
+/****************
+ * IR Generator *
+ ****************/
+static struct ir_val
+ir_prog_generate_rec(struct darr * program,
+                     struct ast_node * node,
+                     int * var_id)
 {
     switch (node->type) {
-    case AST_INTEGER: {
-        struct ir_sym * dest = ir_sym_new(NULL, IR_INTEGER, var_id);
-        struct ir_stmt stmt = {
-            .type = IR_CONST_ASSIGNMENT,
-            .const_asn = {
-                .dest = dest,
-                .val = node->value.INTEGER,
+    case AST_SCALAR: {
+        enum ir_scalar_type type = ir_scalar_type_from_ast(node->scalar.type);
+
+        struct ir_scalar scalar = { .type = type };
+        if (type == IR_INTEGER) scalar.integer = node->scalar.integer;
+        else scalar.boolean = node->scalar.boolean;
+
+        struct ir_sym * dest = ir_sym_new(NULL, type, var_id);
+
+        struct ir_unit unit = {
+            .type = IR_STMT,
+            .stmt = {
+                .type = IR_CONST_ASSIGNMENT,
+                .const_asn = {
+                    .dest = dest,
+                    .scalar = scalar,
+                }
             }
         };
-        ir_block_push(stmt, block);
-        return (struct ir_arg) {
-            .type = IR_INTEGER,
-            .sym = dest,
+
+        darr_push_back(program, &unit);
+
+        return (struct ir_val) {
+            .type = IR_SYMBOL,
+            .symbol = dest,
+        };
+    }
+    case AST_BINOP: {
+        enum ir_scalar_type dest_type;
+        switch (node->binop.op) {
+        case AST_ADD:
+        case AST_SUB:
+        case AST_MUL:
+        case AST_DIV:
+        case AST_MOD: {
+            dest_type = IR_INTEGER;
+            break;
+        }
+        case AST_AND:
+        case AST_OR:
+        case AST_XOR: {
+            dest_type = IR_BOOLEAN;
+            break;
+        }
+        }
+        struct ir_sym * dest = ir_sym_new(NULL, dest_type, var_id);
+        struct ir_val val1 = ir_prog_generate_rec(program, node->binop.left, var_id);
+        struct ir_val val2 = ir_prog_generate_rec(program, node->binop.right, var_id);
+
+        struct ir_unit unit = {
+            .type = IR_STMT,
+            .stmt = {
+                .type = IR_BINOP_ASSIGNMENT,
+                .binop_asn = {
+                    .op = ir_binop_from_ast(node->binop.op),
+                    .dest = dest,
+                    .val1 = val1,
+                    .val2 = val2,
+                }
+            },
+        };
+
+        darr_push_back(program, &unit);
+
+        return (struct ir_val) {
+            .type = IR_SYMBOL,
+            .symbol = dest,
         };
     }
     case AST_PRNT: {
-        struct ir_arg print_arg = ir_block_generate_rec(node->child, var_id, block);
-        struct ir_stmt stmt = {
-            .type = IR_PRINT,
-            .prnt = {
-                .arg = print_arg
-            }
+        struct ir_val val = ir_prog_generate_rec(program, node->print.child, var_id);
+        struct ir_unit unit = {
+            .type = IR_STMT,
+            .stmt = {
+                .type = IR_PRINT,
+                .print = {
+                    .val = val
+                },
+            },
         };
-        ir_block_push(stmt, block);
-        return (struct ir_arg){0};
+        darr_push_back(program, &unit);
+        return (struct ir_val){0};
     }
-    case AST_ADD:
-    case AST_SUB:
-    case AST_MUL:
-    case AST_DIV:
-    case AST_MOD: {
-        struct ir_sym * dest = ir_sym_new(NULL, IR_INTEGER, var_id);
-        struct ir_arg arg1 = ir_block_generate_rec(node->left, var_id, block);
-        struct ir_arg arg2 = ir_block_generate_rec(node->right, var_id, block);
-        struct ir_stmt stmt = {
-            .type = IR_BINOP_ASSIGNMENT,
-            .binop_asn = {
-                .op = ir_astk_to_ir_binop(node->type),
-                .dst = dest,
-                .arg1 = arg1,
-                .arg2 = arg2
-            }
+    case AST_BLOCK: {
+        // block is like a subprogram. we first generate the block
+        struct darr * block = darr_init(sizeof(struct ir_unit));
+        int n = darr_size(node->block.statements);
+        for (int i = 0; i < n; i++) {
+            struct ast_node ** subnode = darr_get(node->block.statements, i);
+            ir_prog_generate_rec(block, *subnode, var_id);
+        }
+
+        // now we push that block as a unit to the program
+        struct  ir_unit unit = {
+            .type = IR_BLOCK,
+            .block = block,
         };
-        ir_block_push(stmt, block);
-        return (struct ir_arg) {
-            .sym = dest,
-            .type = IR_INTEGER,
-        };
+
+        darr_push_back(program, &unit);
+        return (struct ir_val){0};
     }
+    case AST_PUNCTUATOR: {
+        return (struct ir_val){0};
     }
+    };
 }
 
-struct ir_block *
-ir_block_generate(struct ast_node * root)
+
+struct darr *
+ir_prog_generate(struct ast_node * root)
 {
     if (!root) return NULL;
     int var_id = 0;
-    struct ir_block * new = malloc(sizeof(struct ir_block));
-    *new = (struct ir_block){0};
-    ir_block_generate_rec(root, &var_id, new);
-    return new;
+    struct darr * program = darr_init(sizeof(struct ir_unit));
+    ir_prog_generate_rec(program, root, &var_id);
+    return program;
 }
 
 
@@ -148,9 +198,6 @@ ir_fprintf(struct ir_ctx * ctx, const char *fmt, ...)
 }
 
 
-/**************/
-/* Public API */
-/**************/
 struct ir_ctx
 ir_ctx_init(struct cli_opts * cliopts)
 {
@@ -184,68 +231,80 @@ ir_sym_to_str(struct ir_sym * sym, char * dest)
     sprintf(dest, "tmp_%d", sym->id);
 }
 
-void
-ir_arg_to_str(struct ir_arg arg, char * dest)
-{
-    ir_sym_to_str(arg.sym, dest);
-}
 
-char
-ir_opch(enum ir_binop type)
+void
+ir_scalar_to_str(struct ir_scalar scalar, char * dest)
 {
-    switch (type) {
-    case IR_ADD: return '+';
-    case IR_SUB: return '-';
-    case IR_MUL: return '*';
-    case IR_DIV: return '/';
-    case IR_MOD: return '%';
-    default: return '?';
+    switch (scalar.type) {
+    case IR_INTEGER: {
+        sprintf(dest, "%5d", scalar.integer);
+        return;
+    }
+    case IR_BOOLEAN: {
+        sprintf(dest, "%5s", bool_to_str(scalar.boolean));
+        return;
+    }
     }
 }
 
 void
-ir_print(struct ir_ctx * ctx, struct ir_block * block)
+ir_val_to_str(struct ir_val val, char * dest)
 {
-    if (!ctx || !ctx->rprt || ctx->err || !block) return;
-    for (int i = 0; i < block->size; i++) {
-        switch (block->stmts[i].type) {
-        case IR_CONST_ASSIGNMENT: {
-            char dest[64];
-            ir_sym_to_str(block->stmts[i].const_asn.dest, dest);
-            int val = block->stmts[i].const_asn.val;
-            ir_fprintf(ctx, "%5s = %d\n", dest, val);
-            break;
-        };
-        case IR_BINOP_ASSIGNMENT: {
-            switch (block->stmts[i].binop_asn.op) {
-            case IR_ADD:
-            case IR_SUB:
-            case IR_MUL:
-            case IR_DIV:
-            case IR_MOD: {
-                char dest[64];
-                char arg1[64];
-                char arg2[64];
-                ir_sym_to_str(block->stmts[i].binop_asn.dst, dest);
-                ir_arg_to_str(block->stmts[i].binop_asn.arg1, arg1);
-                ir_arg_to_str(block->stmts[i].binop_asn.arg2, arg2);
-                ir_fprintf(ctx,
-                           "%5s = %5s %c %5s\n",
-                           dest,
-                           arg1,
-                           ir_opch(block->stmts[i].binop_asn.op),
-                           arg2);
-                break;
-            }
-            }
-            break;
+    switch (val.type) {
+    case IR_SYMBOL: {
+        ir_sym_to_str(val.symbol, dest);
+        return;
+    }
+    case IR_SCALAR: {
+        ir_scalar_to_str(val.scalar, dest);
+        return;
+    }
+    }
+}
+
+
+void
+ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
+{
+    if (!ctx || !ctx->rprt || ctx->err || !unit) return;
+    if (unit->type == IR_BLOCK) {
+        int n = darr_size(unit->block);
+        for (int i = 0; i < n; i++) {
+            struct ir_unit ** subunit = darr_get(unit->block, i);
+            ir_print(ctx, *subunit);
         }
-        case IR_PRINT: {
-            char arg_str[64];
-            ir_arg_to_str(block->stmts[i].prnt.arg, arg_str);
-            ir_fprintf(ctx, "print %s\n", arg_str);
-            break;
-        }
-        }
+        return;
+    }
+
+    switch (unit->stmt.type) {
+    case IR_CONST_ASSIGNMENT: {
+        char dest_name[65];
+        char scalar_string[65];
+        ir_sym_to_str(unit->stmt.const_asn.dest, dest_name);
+        ir_scalar_to_str(unit->stmt.const_asn.scalar, scalar_string);
+        ir_fprintf(ctx, "%5s = %d\n", dest_name, scalar_string);
+        return;
+    }
+    case IR_BINOP_ASSIGNMENT: {
+        char dest_name[65];
+        char val1[65];
+        char val2[65];
+        ir_sym_to_str(unit->stmt.binop_asn.dest, dest_name);
+        ir_val_to_str(unit->stmt.binop_asn.val1, val1);
+        ir_val_to_str(unit->stmt.binop_asn.val2, val2);
+        ir_fprintf(ctx,
+                   "%5s = %5s %3c %5s\n",
+                   dest_name,
+                   val1,
+                   ir_opch(unit->stmt.binop_asn.op),
+                   val2);
+        return;
+    }
+    case IR_PRINT: {
+        char val_str[65];
+        ir_val_to_str(unit->stmt.print.val, val_str);
+        ir_fprintf(ctx, "print %s\n", val_str);
+        return;
+    }
     }
 }
