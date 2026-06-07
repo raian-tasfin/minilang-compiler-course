@@ -2,6 +2,7 @@
 #include "../darr/darr.h"
 #include "../boolean/boolean.h"
 #include <stdarg.h>
+#include <stdio.h>
 
 enum ir_scalar_type
 ir_scalar_type_from_ast(enum ast_scalar_type type)
@@ -38,7 +39,7 @@ ir_opch(enum ir_binop op)
     case IR_MOD: return "%" ;
     case IR_AND: return "&&";
     case IR_OR : return "||";
-    case IR_XOR: return "^" ;
+    case IR_XOR: return "^^" ;
     }
 }
 
@@ -62,25 +63,31 @@ ir_sym_new(char * name, enum ir_scalar_type type, int * var_id)
 /****************
  * IR Generator *
  ****************/
-static struct ir_val
-ir_prog_generate_rec(struct darr * program,
+static struct ir_sym *
+ir_prog_generate_rec(struct ir_unit * root_unit,
                      struct ast_node * node,
-                     int * var_id)
+                     int * var_id,
+                     int * lineno)
 {
     switch (node->type) {
     case AST_SCALAR: {
-        enum ir_scalar_type type = ir_scalar_type_from_ast(node->scalar.type);
+        /* Create a const assignment */
 
+        // create the scalar
+        enum ir_scalar_type type = ir_scalar_type_from_ast(node->scalar.type);
         struct ir_scalar scalar = { .type = type };
         if (type == IR_INTEGER) scalar.integer = node->scalar.integer;
         else scalar.boolean = node->scalar.boolean;
 
+        // create the smbol
         struct ir_sym * dest = ir_sym_new(NULL, type, var_id);
 
+        // tmp_i = scalar value
         struct ir_unit unit = {
             .type = IR_STMT,
             .stmt = {
                 .type = IR_CONST_ASSIGNMENT,
+                .lineno = ++(*lineno),
                 .const_asn = {
                     .dest = dest,
                     .scalar = scalar,
@@ -88,12 +95,8 @@ ir_prog_generate_rec(struct darr * program,
             }
         };
 
-        darr_push_back(program, &unit);
-
-        return (struct ir_val) {
-            .type = IR_SYMBOL,
-            .symbol = dest,
-        };
+        darr_push_back(root_unit->block, &unit);
+        return dest;
     }
     case AST_BINOP: {
         enum ir_scalar_type dest_type;
@@ -114,13 +117,14 @@ ir_prog_generate_rec(struct darr * program,
         }
         }
         struct ir_sym * dest = ir_sym_new(NULL, dest_type, var_id);
-        struct ir_val val1 = ir_prog_generate_rec(program, node->binop.left, var_id);
-        struct ir_val val2 = ir_prog_generate_rec(program, node->binop.right, var_id);
+        struct ir_sym * val1 = ir_prog_generate_rec(root_unit, node->binop.left, var_id, lineno);
+        struct ir_sym * val2 = ir_prog_generate_rec(root_unit, node->binop.right, var_id, lineno);
 
         struct ir_unit unit = {
             .type = IR_STMT,
             .stmt = {
                 .type = IR_BINOP_ASSIGNMENT,
+                .lineno = ++(*lineno),
                 .binop_asn = {
                     .op = ir_binop_from_ast(node->binop.op),
                     .dest = dest,
@@ -130,60 +134,61 @@ ir_prog_generate_rec(struct darr * program,
             },
         };
 
-        darr_push_back(program, &unit);
-
-        return (struct ir_val) {
-            .type = IR_SYMBOL,
-            .symbol = dest,
-        };
+        darr_push_back(root_unit->block, &unit);
+        return dest;
     }
     case AST_PRNT: {
-        struct ir_val val = ir_prog_generate_rec(program, node->print.child, var_id);
+        struct ir_sym * val = ir_prog_generate_rec(root_unit, node->print.child, var_id, lineno);
         struct ir_unit unit = {
             .type = IR_STMT,
             .stmt = {
                 .type = IR_PRINT,
+                .lineno = ++(*lineno),
                 .print = {
                     .val = val
                 },
             },
         };
-        darr_push_back(program, &unit);
-        return (struct ir_val){0};
+        darr_push_back(root_unit->block, &unit);
+        return NULL;
     }
     case AST_BLOCK: {
         // block is like a subprogram. we first generate the block
-        struct darr * block = darr_init(sizeof(struct ir_unit));
+        struct ir_unit block = {
+            .type = IR_BLOCK,
+            .block = darr_init(sizeof(struct ir_unit)),
+        };
         int n = darr_size(node->block.statements);
         for (int i = 0; i < n; i++) {
             struct ast_node ** subnode = darr_get(node->block.statements, i);
-            ir_prog_generate_rec(block, *subnode, var_id);
+            ir_prog_generate_rec(&block, *subnode, var_id, lineno);
         }
 
-        // now we push that block as a unit to the program
-        struct  ir_unit unit = {
-            .type = IR_BLOCK,
-            .block = block,
-        };
-
-        darr_push_back(program, &unit);
-        return (struct ir_val){0};
+        // now we push that block to the program
+        darr_push_back(root_unit->block, &block);
+        return NULL;
     }
     case AST_PUNCTUATOR: {
-        return (struct ir_val){0};
+        return NULL;
     }
     };
 }
 
 
-struct darr *
+struct ir_unit *
 ir_prog_generate(struct ast_node * root)
 {
     if (!root) return NULL;
     int var_id = 0;
-    struct darr * program = darr_init(sizeof(struct ir_unit));
-    ir_prog_generate_rec(program, root, &var_id);
-    return program;
+    int lineno = 0;
+
+    struct ir_unit * root_unit = malloc(sizeof(struct ir_unit));
+    *root_unit = (struct ir_unit){
+        .type = IR_BLOCK,
+        .block = darr_init(sizeof(struct ir_unit)),
+    };
+    ir_prog_generate_rec(root_unit, root, &var_id, &lineno);
+    return root_unit;
 }
 
 
@@ -247,21 +252,6 @@ ir_scalar_to_str(struct ir_scalar scalar, char * dest)
     }
 }
 
-void
-ir_val_to_str(struct ir_val val, char * dest)
-{
-    switch (val.type) {
-    case IR_SYMBOL: {
-        ir_sym_to_str(val.symbol, dest);
-        return;
-    }
-    case IR_SCALAR: {
-        ir_scalar_to_str(val.scalar, dest);
-        return;
-    }
-    }
-}
-
 
 void
 ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
@@ -270,11 +260,13 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
     if (unit->type == IR_BLOCK) {
         int n = darr_size(unit->block);
         for (int i = 0; i < n; i++) {
-            struct ir_unit ** subunit = darr_get(unit->block, i);
-            ir_print(ctx, *subunit);
+            struct ir_unit * subunit = darr_get(unit->block, i);
+            ir_print(ctx, subunit);
         }
         return;
     }
+
+    printf("%3d. ", unit->stmt.lineno);
 
     switch (unit->stmt.type) {
     case IR_CONST_ASSIGNMENT: {
@@ -282,7 +274,7 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
         char scalar_string[65];
         ir_sym_to_str(unit->stmt.const_asn.dest, dest_name);
         ir_scalar_to_str(unit->stmt.const_asn.scalar, scalar_string);
-        ir_fprintf(ctx, "%5s = %d\n", dest_name, scalar_string);
+        ir_fprintf(ctx, "%7s = %7s\n", dest_name, scalar_string);
         return;
     }
     case IR_BINOP_ASSIGNMENT: {
@@ -290,10 +282,10 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
         char val1[65];
         char val2[65];
         ir_sym_to_str(unit->stmt.binop_asn.dest, dest_name);
-        ir_val_to_str(unit->stmt.binop_asn.val1, val1);
-        ir_val_to_str(unit->stmt.binop_asn.val2, val2);
+        ir_sym_to_str(unit->stmt.binop_asn.val1, val1);
+        ir_sym_to_str(unit->stmt.binop_asn.val2, val2);
         ir_fprintf(ctx,
-                   "%5s = %5s %3c %5s\n",
+                   "%7s = %7s %3s %7s\n",
                    dest_name,
                    val1,
                    ir_opch(unit->stmt.binop_asn.op),
@@ -302,8 +294,8 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
     }
     case IR_PRINT: {
         char val_str[65];
-        ir_val_to_str(unit->stmt.print.val, val_str);
-        ir_fprintf(ctx, "print %s\n", val_str);
+        ir_sym_to_str(unit->stmt.print.val, val_str);
+        ir_fprintf(ctx, "%7s   %7s\n", "print", val_str);
         return;
     }
     }

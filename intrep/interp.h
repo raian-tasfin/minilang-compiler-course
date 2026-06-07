@@ -60,26 +60,6 @@ struct ir_sym {
 };
 
 
-/*********************
- * IR Value Argument *
- *********************/
-/* Values in this language can be immediate values (scalar constants)
- * or can be inferred from variables.
- */
-enum ir_val_type {
-    IR_SCALAR,
-    IR_SYMBOL,
-};
-
-struct ir_val {
-    enum ir_val_type type;
-    union {
-        struct ir_scalar scalar;
-        struct ir_sym *  symbol;
-    };
-};
-
-
 /**************
  * Statements *
  **************/
@@ -91,16 +71,17 @@ struct ir_stmt_const_asn {
 struct ir_stmt_binop_asn {
     enum ir_binop op;
     struct ir_sym * dest;
-    struct ir_val   val1;
-    struct ir_val   val2;
+    struct ir_sym * val1;
+    struct ir_sym * val2;
 };
 
 struct ir_stmt_print {
-    struct ir_val val;
+    struct ir_sym * val;
 };
 
 struct ir_stmt {
     enum ir_stmt_type type;
+    int lineno;
     union {
         struct ir_stmt_const_asn const_asn;
         struct ir_stmt_binop_asn binop_asn;
@@ -123,7 +104,7 @@ struct ir_unit {
 /**
  * An IR program is an array of units.
  */
-struct darr * // array of unitsb
+struct ir_unit * // array of units
 ir_prog_generate(struct ast_node * root);
 
 

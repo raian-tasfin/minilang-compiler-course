@@ -93,7 +93,6 @@ seman_type_check_proc(struct ast_node * root)
         }
     }
     case AST_BLOCK: {
-        printf("calling from block\n");
         int cnt_statements = darr_size(root->block.statements);
         for (int i = 0; i < cnt_statements; i++) {
             struct ast_node ** stmt = darr_get(root->block.statements, i);

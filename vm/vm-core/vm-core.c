@@ -2,6 +2,7 @@
 #include "vm-definitions.h"
 #include "utils.h"
 #include "../darr/darr.h"
+#include "../boolean/boolean.h"
 
 
 /*********************
@@ -58,11 +59,14 @@ vm_exec_bin(struct vm * vm, union vm_instr_view view)
 {
     if (!vmcr_ensure_vm(vm)) return false;
     switch (view.bin.op) {
-    case VM_ADD: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] + vm->state.r[view.bin.arg2]; return true;
-    case VM_SUB: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] - vm->state.r[view.bin.arg2]; return true;
-    case VM_MUL: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] * vm->state.r[view.bin.arg2]; return true;
-    case VM_DIV: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] / vm->state.r[view.bin.arg2]; return true;
-    case VM_MOD: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] % vm->state.r[view.bin.arg2]; return true;
+    case VM_ADD: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1]  + vm->state.r[view.bin.arg2]; return true;
+    case VM_SUB: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1]  - vm->state.r[view.bin.arg2]; return true;
+    case VM_MUL: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1]  * vm->state.r[view.bin.arg2]; return true;
+    case VM_DIV: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1]  / vm->state.r[view.bin.arg2]; return true;
+    case VM_MOD: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1]  % vm->state.r[view.bin.arg2]; return true;
+    case VM_AND: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] && vm->state.r[view.bin.arg2]; return true;
+    case VM_OR : vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] || vm->state.r[view.bin.arg2]; return true;
+    case VM_XOR: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1]  ^ vm->state.r[view.bin.arg2]; return true;
     default: fprintf(stderr, "[VM]: Wrong dispatch for binary op."); return false;
     };
 }
@@ -72,7 +76,12 @@ vm_exec_print(struct vm * vm, union vm_instr_view view)
 {
     if (!vmcr_ensure_vm(vm)) return false;
     if (!vmcr_ensure_op_dispatch(view, VM_PRNT)) return false;
-    fprintf(vm->ctx.print_stream, "%d\n", vm->state.r[view.print.reg]);
+
+    if (view.print.flags & VM_PRNT_BOOLEAN)
+        fprintf(vm->ctx.print_stream, "%s\n", bool_to_str(vm->state.r[view.print.reg]));
+    else
+        fprintf(vm->ctx.print_stream, "%d\n", view.print.reg);
+
     return true;
 }
 
@@ -85,16 +94,19 @@ char *
 vm_op_to_str(enum vm_op op)
 {
     switch (op){
-    case VM_ERR: return "VM_ERR";
-    case VM_MOV: return "VM_MOV";
-    case VM_ADD: return "VM_ADD";
-    case VM_SUB: return "VM_SUB";
-    case VM_MUL: return "VM_MUL";
-    case VM_DIV: return "VM_DIV";
-    case VM_MOD: return "VM_MOD";
-    case VM_PRNT: return "VM_PRNT";
-    case VM_EXIT: return "VM_EXIT";
-    default: return "VM_UNKOWN";
+    case VM_ERR: return  "ERR";
+    case VM_MOV: return  "MOV";
+    case VM_ADD: return  "ADD";
+    case VM_SUB: return  "SUB";
+    case VM_MUL: return  "MUL";
+    case VM_DIV: return  "DIV";
+    case VM_MOD: return  "MOD";
+    case VM_AND: return  "AND";
+    case VM_OR : return  "OR";
+    case VM_XOR: return  "XOR";
+    case VM_PRNT: return "PRNT";
+    case VM_EXIT: return "EXIT";
+    default: return      "UNKOWN";
     }
 }
 
@@ -141,6 +153,9 @@ vm_run(struct vm * vm)
         case VM_MUL:
         case VM_DIV:
         case VM_MOD:
+        case VM_AND:
+        case VM_OR:
+        case VM_XOR:
             if (!(ok = vm_exec_bin(vm, view))) goto panic;
             break;
         case VM_PRNT:

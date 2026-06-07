@@ -5,6 +5,7 @@
 #include "../program-loader/program-loader.h"
 #include <stdbool.h>
 #include <stdio.h>
+#include "../boolean/boolean.h"
 
 bool
 vmrun_main(int argc, char **argv)

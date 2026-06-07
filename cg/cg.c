@@ -1,91 +1,206 @@
 #include "cg.h"
-#include "../darr/darr.h"
 #include "../vm/vm-core/vm-core.h"
 #include "../vm/vm-core/vm-definitions.h"
-#include "../intrep/interp.h"
-#include <assert.h>
-#include <stdalign.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include <errno.h>
 
 
 /**************
  * Structures *
  **************/
 struct cg_ctx {
-    struct darr * last_use;        // line number. int
-    struct darr * reg_of_sym;      // register int. (need -1)
-    int sym_at_reg[VM_REGISTER_CNT];
-    struct ir_block * block;
+    struct darr *    last_use;   // line number. int.
+    struct darr *    reg_of_sym; // register. int. (-1 means unassigned)
+    int              sym_at_reg[VM_REGISTER_CNT];
+    struct ir_unit * root_unit;
 };
 
 
-/*********************
- * Private Utilities *
- *********************/
-enum vm_op
-cg_ir_to_vm_op(enum ir_binop op)
-{
-    switch (op) {
-    case IR_ADD: return VM_ADD;
-    case IR_SUB: return VM_SUB;
-    case IR_MUL: return VM_MUL;
-    case IR_MOD: return VM_MOD;
-    case IR_DIV: return VM_DIV;
-    }
-}
 
-/* bool */
-/* cg_generate_const_assignment(struct ir_block * block, ) */
-bool
-cg_update_last_use(struct darr * program, int id, int lineno, int none)
-{
-    if (!darr_ensure_index(program, id, &none)) return false;
-    if (!darr_set(program, id, &lineno)) return false;
-    return true;
-}
-
-
+/************************
+ * Forward Declarations *
+ ************************/
 static struct darr *
-cg_get_last_use(struct ir_block * block)
+cg_get_last_use(struct ir_unit * unit);
+
+bool cg_get_last_use_rec(struct darr * luse, struct ir_unit * unit);
+bool cg_update_last_use(struct darr * luse, int id, int lineno, int none);
+bool cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * program);
+int  cg_alloc_register_sym(struct cg_ctx * ctx, int symid, int lineno);
+
+union vm_instr_view cg_generate_const_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
+union vm_instr_view cg_generate_binop_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
+union vm_instr_view cg_generate_prnt_asn( struct cg_ctx * ctx, struct ir_stmt stmt);
+
+int cg_scalar_to_int(struct ir_scalar scalar);
+
+enum vm_op cg_ir_to_vm_binop(enum ir_binop op);
+
+/******************
+ * Implmentations *
+ ******************/
+struct cg_ctx *
+cg_ctx_init(struct ir_unit * root_unit)
 {
+    struct cg_ctx * ctx = NULL;
     struct darr * luse = NULL;
     int none = -1;
-    if (!block) {
-        fprintf(stderr, "[CG Last Use]: Empty block provided. No last use calculated.\n");
-        goto error;
-    }
-    if (!(luse = darr_init(sizeof(int)))) {
-        fprintf(stderr, "[CG Last Use]: Error initializing last use array.\n");
-        goto error;
-    }
 
-    for (int lineno = 0; lineno < block->size; lineno++) {
-        struct ir_stmt stmt = block->stmts[lineno];
-        switch(stmt.type) {
-        case IR_CONST_ASSIGNMENT: // no read
-            break;
-        case IR_BINOP_ASSIGNMENT: {
-            if (!cg_update_last_use(luse, stmt.binop_asn.arg1.sym->id, lineno, none)) goto error;
-            if (!cg_update_last_use(luse, stmt.binop_asn.arg2.sym->id, lineno, none)) goto error;
-            break;
-        };
-        case IR_PRINT: {
-            if (!cg_update_last_use(luse, stmt.prnt.arg.sym->id, lineno, none)) goto error;
-            break;
-        }
-        }
-    }
-    return luse;
+    // Ensure root ir unit
+    if (!root_unit) return NULL;
+
+    // Allocate context
+    if (!(ctx = malloc(sizeof(struct cg_ctx)))) goto error;
+
+    // get last use
+    if (!(ctx->last_use = cg_get_last_use(root_unit))) goto error;
+
+    // allocate reg_of_sym
+    if (!(ctx->reg_of_sym = darr_init(sizeof(int)))) goto error;
+    if (!(darr_resize(ctx->reg_of_sym, darr_size(ctx->last_use), &none))) goto error;
+
+    // fill sym_at_reg
+    for (int i = 0; i < VM_REGISTER_CNT; i++) ctx->sym_at_reg[i] = -1;
+
+    // add root unit to context
+    ctx->root_unit = root_unit;
+
+    return ctx;
 
 error:
+    cg_ctx_destroy(&ctx);
     darr_destroy(&luse);
     return NULL;
 }
 
-/****************************
- * Register Context Manager *
- ****************************/
+
+struct darr *
+cg_generate_code(struct cg_ctx * ctx)
+{
+    struct darr * program = NULL;
+
+    if (!ctx) goto error;
+    if (!(program = darr_init(sizeof(union vm_instr_view)))) goto error;
+    if (!cg_generate_code_rec(ctx, ctx->root_unit, program)) goto error;
+
+    union vm_instr_view exit_view = {
+        .base = {
+            .op = VM_EXIT
+        }
+    };
+
+    if (!(darr_push_back(program, &exit_view))) goto error;
+
+    return program;
+
+error:
+    darr_destroy(&program);
+    return NULL;
+}
+
+
+void
+cg_ctx_destroy(struct cg_ctx ** ctx)
+{
+    if (!ctx || !*ctx) return;
+    darr_destroy(&(*ctx)->last_use);
+    darr_destroy(&(*ctx)->reg_of_sym);
+}
+
+
+static struct darr *
+cg_get_last_use(struct ir_unit * unit)
+{
+    struct darr * luse = NULL;
+
+    if (!unit) goto error;
+    if (!(luse = darr_init(sizeof(int)))) goto error;
+    if (!cg_get_last_use_rec(luse, unit)) goto error;
+    return luse;
+
+ error:
+    darr_destroy(&luse);
+    return NULL;
+}
+
+
+bool
+cg_get_last_use_rec(struct darr * luse, struct ir_unit * unit)
+{
+    int none = -1;
+
+    if (!luse) return false;
+    if (!unit) return false;
+    if (unit->type == IR_BLOCK) {
+        int n = darr_size(unit->block);
+        for (int i = 0; i < n; i++) {
+            struct ir_unit * subunit= darr_get(unit->block, i);
+            if (!cg_get_last_use_rec(luse, subunit)) return false;
+        }
+        return true;
+    }
+
+    switch (unit->stmt.type) {
+    case IR_CONST_ASSIGNMENT: /* no read */ return true;
+    case IR_BINOP_ASSIGNMENT: {
+        if (!(cg_update_last_use(luse, unit->stmt.binop_asn.val1->id, unit->stmt.lineno, none))) return false;
+        if (!(cg_update_last_use(luse, unit->stmt.binop_asn.val2->id, unit->stmt.lineno, none))) return false;
+        return true;
+    }
+    case IR_PRINT:
+        if (!(cg_update_last_use(luse, unit->stmt.print.val->id, unit->stmt.lineno, none))) return false;
+        return true;
+    }
+}
+
+
+bool
+cg_update_last_use(struct darr * luse, int id, int lineno, int none)
+{
+    if (!darr_ensure_index(luse, id, &none)) return false;
+    if (!darr_set(luse, id, &lineno)) return false;
+    return true;
+}
+
+
+
+bool
+cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * program)
+{
+    if (!ctx) return false;
+    if (!program) return false;
+
+    if (unit->type == IR_BLOCK) {
+        int n = darr_size(unit->block);
+        for (int i = 0; i < n; i++) {
+            struct ir_unit * subunit = darr_get(unit->block, i);
+            if (!cg_generate_code_rec(ctx, subunit, program)) return false;
+        }
+        return true;
+    }
+
+    switch (unit->stmt.type) {
+    case IR_CONST_ASSIGNMENT: {
+        union vm_instr_view instr_view = cg_generate_const_asn(ctx, unit->stmt);
+        if (!darr_push_back(program, &instr_view)) return false;
+
+        union vm_instr_view const_view = { .raw = cg_scalar_to_int(unit->stmt.const_asn.scalar) };
+        if (!darr_push_back(program, &const_view)) return false;
+        return true;
+    }
+    case IR_BINOP_ASSIGNMENT: {
+        union vm_instr_view view = cg_generate_binop_asn(ctx, unit->stmt);
+        if (!darr_push_back(program, &view)) return false;
+        return true;
+    }
+    case IR_PRINT: {
+        union vm_instr_view view = cg_generate_prnt_asn(ctx, unit->stmt);
+        if (!darr_push_back(program, &view)) return false;
+        return true;
+    }
+    }
+}
+
+
 int
 cg_alloc_register_sym(struct cg_ctx * ctx, int symid, int lineno)
 {
@@ -119,138 +234,71 @@ cg_alloc_register_sym(struct cg_ctx * ctx, int symid, int lineno)
 }
 
 
-/*******************
- * Code Generators *
- *******************/
-static union vm_instr_view
-cg_generate_prnt(struct cg_ctx * ctx, struct ir_stmt_prnt stmt, int lineno)
-{
-    union vm_instr_view view = {
-        .print = {
-            .op = VM_PRNT,
-            .reg = cg_alloc_register_sym(ctx, stmt.arg.sym->id, lineno)
-        }
-    };
-    return view;
-}
-
-static union vm_instr_view
-cg_generate_const_asn(struct cg_ctx * ctx, struct ir_stmt_const_assignment stmt, int lineno)
+union vm_instr_view
+cg_generate_const_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
 {
     union vm_instr_view view = {
         .mov = {
-            .dest = cg_alloc_register_sym(ctx, stmt.dest->id, lineno),
+            .dest = cg_alloc_register_sym(ctx, stmt.const_asn.dest->id, stmt.lineno),
             .flag = VM_MOV_CONST_TO_REG,
-            .op = VM_MOV,
+            .op   = VM_MOV,
         }
     };
     return view;
 }
 
-
-static union vm_instr_view
-cg_generate_binop_asn(struct cg_ctx * ctx, struct ir_stmt_binop_assignment stmt, int lineno)
+union vm_instr_view
+cg_generate_binop_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
 {
     union vm_instr_view view = {
         .bin = {
-            .op = cg_ir_to_vm_op(stmt.op),
-            .dest = cg_alloc_register_sym(ctx, stmt.dst->id, lineno),
-            .arg1 = cg_alloc_register_sym(ctx, stmt.arg1.sym->id, lineno),
-            .arg2 = cg_alloc_register_sym(ctx, stmt.arg2.sym->id, lineno),
+            .op   = cg_ir_to_vm_binop(stmt.binop_asn.op),
+            .dest = cg_alloc_register_sym(ctx, stmt.binop_asn.dest->id, stmt.lineno),
+            .arg1 = cg_alloc_register_sym(ctx, stmt.binop_asn.val1->id, stmt.lineno),
+            .arg2 = cg_alloc_register_sym(ctx, stmt.binop_asn.val2->id, stmt.lineno),
+        }
+    };
+    return view;;
+}
+
+union vm_instr_view
+cg_generate_prnt_asn( struct cg_ctx * ctx, struct ir_stmt stmt)
+{
+    uint16_t flags = 0;
+    if (stmt.print.val->type == IR_BOOLEAN) flags |= VM_PRNT_BOOLEAN;
+
+    union vm_instr_view view = {
+        .print = {
+            .op = VM_PRNT,
+            .flags = flags,
+            .reg = cg_alloc_register_sym(ctx, stmt.print.val->id, stmt.lineno)
         }
     };
     return view;
 }
 
 
-/**************
- * Public API *
- **************/
-void
-cg_ctx_destroy(struct cg_ctx ** ctx)
+int
+cg_scalar_to_int(struct ir_scalar scalar)
 {
-    if (!ctx || !*ctx) return;
-    darr_destroy(&ctx[0]->last_use);
-    darr_destroy(&ctx[0]->reg_of_sym);
-    free(*ctx);
-    *ctx = NULL;
+    switch (scalar.type) {
+    case IR_BOOLEAN: return scalar.boolean ? 1 : 0;
+    case IR_INTEGER: return scalar.integer;
+    }
 }
 
 
-struct cg_ctx *
-cg_ctx_init(struct ir_block * block)
+enum vm_op
+cg_ir_to_vm_binop(enum ir_binop op)
 {
-    struct cg_ctx * ctx = NULL;
-    int none = -1;
-
-    /* Ensure block */
-    if (!block) return NULL;
-    /* Allocate context */
-    if (!(ctx = malloc(sizeof(struct cg_ctx)))) goto error;
-
-    /* Get last use */
-    if (!(ctx->last_use = cg_get_last_use(block))) goto error;
-
-    /* Allocate reg_of_sym */
-    if (!(ctx->reg_of_sym = darr_init(sizeof(int)))) goto error;
-    if (!(darr_resize(ctx->reg_of_sym, darr_size(ctx->last_use), &none))) goto error;
-
-    /* Fill sym_at_reg */
-    for (int i = 0; i < VM_REGISTER_CNT; i++) {
-        ctx->sym_at_reg[i] = -1;
+    switch (op) {
+    case IR_ADD: return VM_ADD;
+    case IR_SUB: return VM_SUB;
+    case IR_MUL: return VM_MUL;
+    case IR_DIV: return VM_DIV;
+    case IR_MOD: return VM_MOD;
+    case IR_AND: return VM_AND;
+    case IR_OR : return VM_OR;
+    case IR_XOR: return VM_XOR;
     }
-
-    /* Add block to context */
-    ctx->block = block;
-
-    return ctx;
-error:
-    cg_ctx_destroy(&ctx);
-    return NULL;
-}
-
-
-// darr of type vm_instr_view
-struct darr *
-cg_generate_code(struct cg_ctx * ctx)
-{
-    struct darr * program = NULL;
-
-    /* Ensure context */
-    if (!ctx) goto error;
-
-    /* Init program array */
-    if (!(program = darr_init(sizeof(union vm_instr_view)))) goto error;
-
-    for (int lineno = 0; lineno < ctx->block->size; lineno++) {
-        struct ir_stmt stmt = ctx->block->stmts[lineno];
-        switch(stmt.type) {
-        case IR_PRINT: {
-            union vm_instr_view view = cg_generate_prnt(ctx, stmt.prnt, lineno);
-            if (!darr_push_back(program, &view)) goto error;
-            break;
-        }
-        case IR_CONST_ASSIGNMENT: {
-            union vm_instr_view view = cg_generate_const_asn(ctx, stmt.const_asn, lineno);
-            if (!darr_push_back(program, &view)) goto error;
-            view.raw = stmt.const_asn.val;
-            if (!darr_push_back(program, &view)) goto error;
-            break;
-        }
-        case IR_BINOP_ASSIGNMENT: {
-            union vm_instr_view view = cg_generate_binop_asn(ctx, stmt.binop_asn, lineno);
-            if (!darr_push_back(program, &view)) goto error;
-            break;
-        }
-        default:
-            break;
-        }
-    }
-    union vm_instr_view view = { .base.op = VM_EXIT };
-    darr_push_back(program, &view);
-    return program;
-
-error:
-    darr_destroy(&program);
-    return NULL;
 }

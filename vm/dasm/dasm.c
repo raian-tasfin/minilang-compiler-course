@@ -18,27 +18,35 @@ vmdasm_dasm(struct darr * program, FILE * outstream)
     if (!vmdasm_ensure_ptr(outstream)) return false;
     for (int i = 0; i < darr_size(program); i++) {
         union vm_instr_view * view = darr_get(program, i);
-        fprintf(outstream, "%s", vm_op_to_str(view->base.op));
+        fprintf(outstream, "%6s", vm_op_to_str(view->base.op));
         switch (view->base.op) {
-        case VM_MOV:
+        case VM_MOV: {
+            int dest = view->mov.dest;
             i++;
-            int val = view->raw;
-            union vm_instr_view * prev = darr_get(program, i - 1);
-            fprintf(outstream, "\tr%d\t%d", prev->mov.dest, val);
+
+            union vm_instr_view * const_view = darr_get(program, i);
+            int val = const_view->raw;
+
+            fprintf(outstream, "\tr%d\t%d", dest, val);
             break;
+        }
         case VM_ADD:
         case VM_SUB:
         case VM_MUL:
         case VM_DIV:
         case VM_MOD:
+        case VM_AND:
+        case VM_OR:
+        case VM_XOR:
             fprintf(outstream, "\tr%d\tr%d\tr%d",
                     view->bin.dest,
                     view->bin.arg1,
                     view->bin.arg2);
             break;
-        case VM_PRNT:
+        case VM_PRNT: {
             fprintf(outstream, "\tr%d", view->print.reg);
             break;
+        }
         case VM_EXIT: break;
         case VM_ERR: break;
         }

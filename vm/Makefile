@@ -22,6 +22,7 @@ DIRS += program
 DIRS += program-loader
 DIRS += vm-core
 DIRS += darr
+DIRS += boolean
 
 
 #########

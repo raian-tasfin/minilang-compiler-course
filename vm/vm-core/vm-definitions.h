@@ -16,6 +16,9 @@ vm_op : uint8_t
     VM_MUL,
     VM_DIV,
     VM_MOD,
+    VM_AND,
+    VM_OR,
+    VM_XOR,
     VM_PRNT,
     VM_EXIT,
 };
@@ -53,6 +56,11 @@ struct vm_binop_instruction {
 };
 
 /* Print */
+// bit 0 - 0 if integer, 1 if boolean
+enum vm_prnt_flag : uint16_t {
+    VM_PRNT_BOOLEAN = 0x001,
+};
+
 struct vm_print_instruction {
     enum vm_op op: 8;
     uint8_t reg: 8;

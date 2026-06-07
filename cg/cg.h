@@ -5,7 +5,7 @@
 
 struct cg_ctx;
 
-struct cg_ctx * cg_ctx_init(struct ir_block * block);
+struct cg_ctx * cg_ctx_init(struct ir_unit * unit);
 void cg_ctx_destroy(struct cg_ctx ** ctx);
 
 // darr of type vm_instr_view
