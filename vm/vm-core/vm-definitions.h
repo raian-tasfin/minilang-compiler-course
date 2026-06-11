@@ -7,8 +7,7 @@
  * Opcodes *
  ***********/
 enum
-vm_op : uint8_t
-{
+vm_op : uint8_t {
     VM_ERR = 0,
     VM_MOV,
     VM_ADD,
@@ -19,6 +18,14 @@ vm_op : uint8_t
     VM_AND,
     VM_OR,
     VM_XOR,
+    VM_NOT,
+    VM_NEG,
+    VM_LT,
+    VM_LE,
+    VM_GT,
+    VM_GE,
+    VM_NE,
+    VM_EQ,
     VM_PRNT,
     VM_EXIT,
 };
@@ -55,6 +62,14 @@ struct vm_binop_instruction {
     uint8_t arg2: 8;
 };
 
+/* Unary Operation */
+struct vm_unop_instruction {
+    enum vm_op op: 8;
+    uint8_t dest: 8;
+    uint8_t arg: 8;
+};
+
+
 /* Print */
 // bit 0 - 0 if integer, 1 if boolean
 enum vm_prnt_flag : uint16_t {
@@ -72,6 +87,7 @@ union vm_instr_view {
     struct vm_instruction       base;
     struct vm_mov_instruction   mov;
     struct vm_binop_instruction bin;
+    struct vm_unop_instruction  un;
     struct vm_print_instruction print;
     uint32_t                    raw;
 };

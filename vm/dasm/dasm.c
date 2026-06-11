@@ -20,6 +20,7 @@ vmdasm_dasm(struct darr * program, FILE * outstream)
         union vm_instr_view * view = darr_get(program, i);
         fprintf(outstream, "%6s", vm_op_to_str(view->base.op));
         switch (view->base.op) {
+            /* Move op */
         case VM_MOV: {
             int dest = view->mov.dest;
             i++;
@@ -30,6 +31,7 @@ vmdasm_dasm(struct darr * program, FILE * outstream)
             fprintf(outstream, "\tr%d\t%d", dest, val);
             break;
         }
+            /* Binary ops */
         case VM_ADD:
         case VM_SUB:
         case VM_MUL:
@@ -38,10 +40,23 @@ vmdasm_dasm(struct darr * program, FILE * outstream)
         case VM_AND:
         case VM_OR:
         case VM_XOR:
+        case VM_LT:
+        case VM_LE:
+        case VM_GT:
+        case VM_GE:
+        case VM_NE:
+        case VM_EQ:
             fprintf(outstream, "\tr%d\tr%d\tr%d",
                     view->bin.dest,
                     view->bin.arg1,
                     view->bin.arg2);
+            break;
+            /* Unary ops */
+        case VM_NEG:
+        case VM_NOT:
+            fprintf(outstream, "\tr%d\tr%d",
+                    view->un.dest,
+                    view->un.arg);
             break;
         case VM_PRNT: {
             fprintf(outstream, "\tr%d", view->print.reg);

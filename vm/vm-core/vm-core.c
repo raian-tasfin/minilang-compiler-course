@@ -67,6 +67,23 @@ vm_exec_bin(struct vm * vm, union vm_instr_view view)
     case VM_AND: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] && vm->state.r[view.bin.arg2]; return true;
     case VM_OR : vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] || vm->state.r[view.bin.arg2]; return true;
     case VM_XOR: vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1]  ^ vm->state.r[view.bin.arg2]; return true;
+    case VM_LT : vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1]  < vm->state.r[view.bin.arg2]; return true;
+    case VM_LE : vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] <= vm->state.r[view.bin.arg2]; return true;
+    case VM_GT : vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1]  > vm->state.r[view.bin.arg2]; return true;
+    case VM_GE : vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] >= vm->state.r[view.bin.arg2]; return true;
+    case VM_NE : vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] != vm->state.r[view.bin.arg2]; return true;
+    case VM_EQ : vm->state.r[view.bin.dest] = vm->state.r[view.bin.arg1] == vm->state.r[view.bin.arg2]; return true;
+    default: fprintf(stderr, "[VM]: Wrong dispatch for binary op."); return false;
+    };
+}
+
+static bool
+vm_exec_un(struct vm * vm, union vm_instr_view view)
+{
+    if (!vmcr_ensure_vm(vm)) return false;
+    switch (view.un.op) {
+    case VM_NOT: vm->state.r[view.un.dest] = !vm->state.r[view.un.arg]; return true;
+    case VM_NEG: vm->state.r[view.un.dest] = -vm->state.r[view.un.arg]; return true;
     default: fprintf(stderr, "[VM]: Wrong dispatch for binary op."); return false;
     };
 }
@@ -94,19 +111,27 @@ char *
 vm_op_to_str(enum vm_op op)
 {
     switch (op){
-    case VM_ERR: return  "ERR";
-    case VM_MOV: return  "MOV";
-    case VM_ADD: return  "ADD";
-    case VM_SUB: return  "SUB";
-    case VM_MUL: return  "MUL";
-    case VM_DIV: return  "DIV";
-    case VM_MOD: return  "MOD";
-    case VM_AND: return  "AND";
-    case VM_OR : return  "OR";
-    case VM_XOR: return  "XOR";
+    case VM_ERR: return "ERR";
+    case VM_MOV: return "MOV";
+    case VM_ADD: return "ADD";
+    case VM_SUB: return "SUB";
+    case VM_MUL: return "MUL";
+    case VM_DIV: return "DIV";
+    case VM_MOD: return "MOD";
+    case VM_AND: return "AND";
+    case VM_OR: return "OR";
+    case VM_XOR: return "XOR";
+    case VM_NOT: return "NOT";
+    case VM_NEG: return "NEG";
+    case VM_LT: return "LT";
+    case VM_LE: return "LE";
+    case VM_GT: return "GT";
+    case VM_GE: return "GE";
+    case VM_NE: return "NE";
+    case VM_EQ: return "EQ";
     case VM_PRNT: return "PRNT";
     case VM_EXIT: return "EXIT";
-    default: return      "UNKOWN";
+    default: return "UNKNOWN";
     }
 }
 
@@ -156,8 +181,17 @@ vm_run(struct vm * vm)
         case VM_AND:
         case VM_OR:
         case VM_XOR:
+        case VM_LT:
+        case VM_LE:
+        case VM_GT:
+        case VM_GE:
+        case VM_NE:
+        case VM_EQ:
             if (!(ok = vm_exec_bin(vm, view))) goto panic;
             break;
+        case VM_NEG:
+        case VM_NOT:
+            if (!(ok = vm_exec_un(vm, view))) goto panic;
         case VM_PRNT:
             if (!(ok= vm_exec_print(vm, view))) goto panic;
             break;
