@@ -68,6 +68,13 @@ lxr_toktostr(int token_type)
     case AND:         return "AND";
     case OR:          return "OR";
     case XOR:         return "XOR";
+    case NOT:         return "NOT";
+    case LT:          return "LT";
+    case LE:          return "LE";
+    case GT:          return "GT";
+    case GE:          return "GE";
+    case NE:          return "NE";
+    case EQ:          return "EQ";
     case INTEGER:     return "INTEGER";
     case BOOLEAN:     return "BOOLEAN";
     case LEX_BLNK:    return "LEX_BLNK";
@@ -142,17 +149,29 @@ lxr_process_proc(int token_type,
         lxr_print_token(BOOLEAN, yylval, ctx);
         return BOOLEAN;
 
-        /* Punctuators */
+        /* Arithmetic */
     case ADD:  lxr_print_token(ADD, yylval, ctx); return ADD;
     case SUB:  lxr_print_token(SUB, yylval, ctx); return SUB;
     case MUL:  lxr_print_token(MUL, yylval, ctx); return MUL;
     case DIV:  lxr_print_token(DIV, yylval, ctx); return DIV;
     case MOD:  lxr_print_token(MOD, yylval, ctx); return MOD;
-    case PRNT: lxr_print_token(PRNT, yylval, ctx); return PRNT;
-    case AND: lxr_print_token(AND, yylval, ctx); return AND;
-    case OR:  lxr_print_token(OR,  yylval, ctx); return OR;
-    case XOR: lxr_print_token(XOR, yylval, ctx); return XOR;
 
+        /* Logical */
+    case AND:  lxr_print_token(AND, yylval, ctx); return AND;
+    case OR:   lxr_print_token(OR,  yylval, ctx); return OR;
+    case XOR:  lxr_print_token(XOR, yylval, ctx); return XOR;
+
+        /* Unary / Comparison */
+    case NOT:  lxr_print_token(NOT, yylval, ctx); return NOT;
+    case LT:   lxr_print_token(LT,  yylval, ctx); return LT;
+    case LE:   lxr_print_token(LE,  yylval, ctx); return LE;
+    case GT:   lxr_print_token(GT,  yylval, ctx); return GT;
+    case GE:   lxr_print_token(GE,  yylval, ctx); return GE;
+    case NE:   lxr_print_token(NE,  yylval, ctx); return NE;
+    case EQ:   lxr_print_token(EQ,  yylval, ctx); return EQ;
+
+        /* Keywords */
+    case PRNT: lxr_print_token(PRNT, yylval, ctx); return PRNT;
 
     case LPRN:
         if (ctx) ctx->open_parens++;
@@ -175,9 +194,7 @@ lxr_process_proc(int token_type,
         return RBRACE;
 
     case NEWLINE:
-        /* Structural newline: suppress only inside open parens */
         if (ctx && ctx->open_parens > 0) return LEX_IGNR;
-
         /* Actual Newline */
         lxr_print_token(NEWLINE, yylval, ctx);
         return token_type;

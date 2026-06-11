@@ -29,6 +29,17 @@ ast_loc_from_bison(YYLTYPE loc)
     };
 }
 
+static inline struct ast_src_loc
+ast_loc_span(YYLTYPE a, YYLTYPE b)
+{
+    return (struct ast_src_loc){
+        .first_line   = a.first_line,
+        .first_column = a.first_column,
+        .last_line    = b.last_line,
+        .last_column  = b.last_column,
+    };
+}
+
 }
 
 %define api.pure full
@@ -65,6 +76,15 @@ ast_loc_from_bison(YYLTYPE loc)
 %token OR
 %token XOR
 
+%token NOT
+
+%token LT
+%token LE
+%token GT
+%token GE
+%token NE
+%token EQ
+
 %token LPRN
 %token RPRN
 %token PRNT
@@ -75,15 +95,22 @@ ast_loc_from_bison(YYLTYPE loc)
 /*******************************
  * Precedence & Associativity  *
  *******************************/
-
 /* Lowest precedence */
 %left OR
 %left XOR
 %left AND
 
+/* Comparison */
+%left EQ NE
+%left LT LE GT GE
+
 /* Arithmetic */
 %left ADD SUB
 %left MUL DIV MOD
+
+/* Unary - highest precedence, right-associative */
+%right UMINUS NOT
+
 
 /*******************************
  * Nonterminal Semantic Types  *
@@ -98,16 +125,15 @@ ast_loc_from_bison(YYLTYPE loc)
 
 program:
             %empty           { $$ = ast_ctr_block(NULL); *ast_root = $$; }
-| program NEWLINE  { $$ = $1; }
-| program stmt     { darr_push_back(($1)->block.statements, &$2); $$ = $1; *ast_root = $$; }
+| program NEWLINE            { $$ = $1; }
+| program stmt               { darr_push_back(($1)->block.statements, &$2); $$ = $1; *ast_root = $$; }
 ;
 
 stmt:
-  expr                 { $$ = $1; }
-| PRNT LPRN expr RPRN  { $$ = ast_ctr_prnt($3, NULL, ast_loc_from_bison(@1), strdup(yyget_text(scanner))); }
-| block                { $$ = $1; }
+  expr                       { $$ = $1; }
+| PRNT LPRN expr RPRN        { $$ = ast_ctr_prnt($3, NULL, ast_loc_from_bison(@1)); }
+| block                      { $$ = $1; }
 ;
-
 
 block:
   LBRACE RBRACE                       { $$ = ast_ctr_block(NULL); }
@@ -123,19 +149,26 @@ block_body:
 ;
 
 expr:
-  INTEGER           { $$ = ast_ctr_integer($1, NULL, ast_loc_from_bison(@1), strdup(yyget_text(scanner))); }
-| BOOLEAN           { $$ = ast_ctr_boolean($1, NULL, ast_loc_from_bison(@1), strdup(yyget_text(scanner))); }
-| expr ADD expr     { $$ = ast_ctr_binop(astk_binop_from_tok(ADD), $1, $3, NULL); }
-| expr SUB expr     { $$ = ast_ctr_binop(astk_binop_from_tok(SUB), $1, $3, NULL); }
-| expr MUL expr     { $$ = ast_ctr_binop(astk_binop_from_tok(MUL), $1, $3, NULL); }
-| expr DIV expr     { $$ = ast_ctr_binop(astk_binop_from_tok(DIV), $1, $3, NULL); }
-| expr MOD expr     { $$ = ast_ctr_binop(astk_binop_from_tok(MOD), $1, $3, NULL); }
-| expr AND expr     { $$ = ast_ctr_binop(astk_binop_from_tok(AND), $1, $3, NULL); }
-| expr OR  expr     { $$ = ast_ctr_binop(astk_binop_from_tok(OR), $1, $3, NULL); }
-| expr XOR expr     { $$ = ast_ctr_binop(astk_binop_from_tok(XOR), $1, $3, NULL); }
-| LPRN expr RPRN    { $$ = $2; }
+  INTEGER               { $$ = ast_ctr_integer($1, NULL, ast_loc_from_bison(@1)); }
+| BOOLEAN               { $$ = ast_ctr_boolean($1, NULL, ast_loc_from_bison(@1)); }
+| expr ADD  expr        { $$ = ast_ctr_binop(astk_binop_from_tok(ADD), $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr SUB  expr        { $$ = ast_ctr_binop(astk_binop_from_tok(SUB), $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr MUL  expr        { $$ = ast_ctr_binop(astk_binop_from_tok(MUL), $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr DIV  expr        { $$ = ast_ctr_binop(astk_binop_from_tok(DIV), $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr MOD  expr        { $$ = ast_ctr_binop(astk_binop_from_tok(MOD), $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr AND  expr        { $$ = ast_ctr_binop(astk_binop_from_tok(AND), $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr OR   expr        { $$ = ast_ctr_binop(astk_binop_from_tok(OR),  $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr XOR  expr        { $$ = ast_ctr_binop(astk_binop_from_tok(XOR), $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr EQ   expr        { $$ = ast_ctr_binop(astk_binop_from_tok(EQ),  $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr NE   expr        { $$ = ast_ctr_binop(astk_binop_from_tok(NE),  $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr LT   expr        { $$ = ast_ctr_binop(astk_binop_from_tok(LT),  $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr LE   expr        { $$ = ast_ctr_binop(astk_binop_from_tok(LE),  $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr GT   expr        { $$ = ast_ctr_binop(astk_binop_from_tok(GT),  $1, $3, NULL, ast_loc_span(@1, @3)); }
+| expr GE   expr        { $$ = ast_ctr_binop(astk_binop_from_tok(GE),  $1, $3, NULL, ast_loc_span(@1, @3)); }
+| SUB expr %prec UMINUS { $$ = ast_ctr_unop(astk_unop_from_tok(SUB),  $2, NULL, ast_loc_span(@1, @2)); }
+| NOT expr              { $$ = ast_ctr_unop(astk_unop_from_tok(NOT),  $2, NULL, ast_loc_span(@1, @2)); }
+| LPRN expr RPRN        { $$ = $2; }
 ;
-
 %%
 
 char *yyget_text(void *yyscanner);

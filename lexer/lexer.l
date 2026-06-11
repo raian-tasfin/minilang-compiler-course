@@ -24,7 +24,7 @@ FALSE_STR False
 [[:blank:]]+             { lxr_process(LEX_BLNK, yylval, yylloc, yyscanner); }
 {cont}                   { lxr_process(LEX_CONT, yylval, yylloc, yyscanner); }
 
-"print"                  { lxr_process(PRNT, yylval, yylloc, yyscanner); }
+"print"                  { lxr_process(PRNT, yylval, yylloc, yyscanner); } 
 
 {TRUE_STR}               { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }
 {FALSE_STR}              { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }
@@ -38,11 +38,19 @@ FALSE_STR False
 "%"                      { lxr_process(MOD, yylval, yylloc, yyscanner); }
 
 "&&"                     { lxr_process(AND, yylval, yylloc, yyscanner); }
-"||"                     { lxr_process(OR, yylval, yylloc, yyscanner); }
+"||"                     { lxr_process(OR,  yylval, yylloc, yyscanner); }
 "^^"                     { lxr_process(XOR, yylval, yylloc, yyscanner); }
 
-"("                      { lxr_process(LPRN, yylval, yylloc, yyscanner); }
-")"                      { lxr_process(RPRN, yylval, yylloc, yyscanner); }
+"!"                      { lxr_process(NOT, yylval, yylloc, yyscanner); }
+"<="                     { lxr_process(LE,  yylval, yylloc, yyscanner); }
+">="                     { lxr_process(GE,  yylval, yylloc, yyscanner); }
+"!="                     { lxr_process(NE,  yylval, yylloc, yyscanner); }
+"=="                     { lxr_process(EQ,  yylval, yylloc, yyscanner); }
+"<"                      { lxr_process(LT,  yylval, yylloc, yyscanner); }
+">"                      { lxr_process(GT,  yylval, yylloc, yyscanner); }
+
+"("                      { lxr_process(LPRN,   yylval, yylloc, yyscanner); }
+")"                      { lxr_process(RPRN,   yylval, yylloc, yyscanner); }
 
 "{"                      { lxr_process(LBRACE, yylval, yylloc, yyscanner); }
 "}"                      { lxr_process(RBRACE, yylval, yylloc, yyscanner); }

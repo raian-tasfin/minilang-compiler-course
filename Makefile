@@ -14,6 +14,14 @@ CLI_H   = $(CLI_DIR)/cli.h
 CLI_C   = $(CLI_DIR)/cli.c
 
 
+#################
+# Source Buffer #
+#################
+SRCBUF_DIR = srcbuf
+SRCBUF_C   = $(SRCBUF_DIR)/srcbuf.c
+SRCBUF_H   = $(SRCBUF_DIR)/srcbuf.h
+
+
 ##########
 # Lexing #
 ##########
@@ -104,6 +112,7 @@ MAIN_C = main.c
 
 SRCS_C =
 SRCS_C += $(MAIN_C)
+SRCS_C += $(SRCBUF_C)
 SRCS_C += $(LEXER_C)
 SRCS_C += $(PARSER_C)
 SRCS_C += $(LEXER_UTIL_C)
@@ -127,7 +136,7 @@ EXEC = minilang
 all: $(EXEC)
 
 
-$(LEXER_C) $(LEXER_H): $(LEXER_SRC)
+$(LEXER_C) $(LEXER_H): $(LEXER_SRC) $(PARSER_H)
 	$(LEXER) --outfile=$(LEXER_C) --header-file=$(LEXER_H) $<
 
 $(PARSER_C) $(PARSER_H): $(PARSER_SRC)
@@ -151,6 +160,7 @@ $(MAIN_C): $(CG_H)
 $(MAIN_C): $(DARR_H)
 $(MAIN_C): $(BOOLEAN_H)
 $(MAIN_C): $(SEMAN_H)
+$(MAIN_C): $(SRCBUF_H)
 
 $(LEXER_UTIL_H): $(PARSER_H) $(LEXER_H)
 $(CLI_C): $(CLI_H)
@@ -160,6 +170,7 @@ $(CG_C): $(CG_H)
 $(DARR_C): $(DARR_H)
 $(BOOLEAN_C): $(BOOLEAN_H)
 $(SEMAN_C): $(SEMAN_H)
+$(SRCBUF_C): $(SRCBUF_H)
 
 
 clean:

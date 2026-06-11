@@ -12,18 +12,37 @@ astk_binop_from_tok(int token_type)
     case DIV: return AST_DIV;
     case MOD: return AST_MOD;
     case AND: return AST_AND;
-    case OR: return AST_OR;
+    case OR:  return AST_OR;
     case XOR: return AST_XOR;
+    case LT:  return AST_LT;
+    case LE:  return AST_LE;
+    case GT:  return AST_GT;
+    case GE:  return AST_GE;
+    case NE:  return AST_NE;
+    case EQ:  return AST_EQ;
     }
 }
+
+
+enum ast_binop_type
+astk_unop_from_tok(int token_type)
+{
+    // unary sub is neg
+    switch (token_type) {
+    case SUB: return AST_NEG;
+    case NOT: return AST_NOT;
+    }
+}
+
 
 
 char *
 astk_kind_to_str(enum ast_kind kind)
 {
     switch (kind) {
-    case AST_SCALAR:    return "AST_SCALAR";
+    case AST_SCALAR:     return "AST_SCALAR";
     case AST_BINOP:      return "AST_BINOP";
+    case AST_UNOP:       return "AST_UNOP";
     case AST_PRNT:       return "AST_PRNT";
     case AST_BLOCK:      return "AST_BLOCK";
     case AST_PUNCTUATOR: return "AST_PUNCTUATOR";
@@ -51,6 +70,22 @@ astk_binop_to_str(enum ast_binop_type type)
     case AST_AND: return "AST_AND";
     case AST_OR:  return "AST_OR";
     case AST_XOR: return "AST_XOR";
+    case AST_LT:  return "AST_LT";
+    case AST_LE:  return "AST_LE";
+    case AST_GT:  return "AST_GT";
+    case AST_GE:  return "AST_GE";
+    case AST_NE:  return "AST_NE";
+    case AST_EQ:  return "AST_EQ";
+
+    }
+}
+
+char *
+astk_unop_to_str(enum ast_unop_type type)
+{
+    switch (type) {
+    case AST_NEG: return "AST_NEG";
+    case AST_NOT: return "AST_NOT";
     }
 }
 

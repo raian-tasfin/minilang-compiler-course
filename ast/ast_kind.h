@@ -6,6 +6,7 @@
 enum ast_kind {
     AST_SCALAR,
     AST_BINOP,
+    AST_UNOP,
     AST_PRNT,
     AST_BLOCK,
     AST_PUNCTUATOR,
@@ -32,19 +33,33 @@ enum ast_binop_type {
     AST_AND,
     AST_OR,
     AST_XOR,
+    AST_LT,
+    AST_LE,
+    AST_GT,
+    AST_GE,
+    AST_NE,
+    AST_EQ,
 };
 
+/* Unary operators */
+enum ast_unop_type {
+    AST_NEG,
+    AST_NOT,
+};
 
 /* Enum to string */
 char * astk_kind_to_str(enum ast_kind kind);
 char * astk_punc_to_str(enum ast_punctuator_type type);
 char * astk_binop_to_str(enum ast_binop_type type);
+char * astk_unop_to_str(enum ast_unop_type type);
 char * astk_scalar_to_str(enum ast_scalar_type type);
 
 /* Alien enum to ast enum */
 enum ast_binop_type
 astk_binop_from_tok(int token_type);
 
+enum ast_binop_type
+astk_unop_from_tok(int token_type);
 
 #endif
 // AST_KIND_H

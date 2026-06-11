@@ -12,13 +12,12 @@
  * Error Reporting *
  *******************/
 static void
-ast_print_src(struct ast_src_loc loc, char * src)
+ast_print_src(struct ast_src_loc loc)
 {
-    fprintf(stderr, "ine %d, col %d-%d: %s\n",
+    fprintf(stderr, "ine %d, col %d-%d\n",
             loc.first_line,
             loc.first_column,
-            loc.last_column,
-            src);
+            loc.last_column);
 }
 
 
@@ -62,13 +61,12 @@ ast_ctx_init(struct cli_ast_opts opts)
 struct ast_node *
 ast_ctr_integer(int val,
                 struct ast_node * current_block,
-                struct ast_src_loc loc,
-                char * src)
+                struct ast_src_loc loc)
 {
     struct ast_node * node = NULL;
     if (!(node = malloc(sizeof(struct ast_node)))) {
         fprintf(stderr, "Failed allocating node.\n");
-        ast_print_src(loc, src);
+        ast_print_src(loc);
         goto error;
     }
 
@@ -76,7 +74,6 @@ ast_ctr_integer(int val,
         .type = AST_SCALAR,
         .current_block = current_block,
         .loc = loc,
-        .src = src,
         .scalar = {
             .type = AST_INTEGER,
             .integer = val,
@@ -92,13 +89,12 @@ error:
 struct ast_node *
 ast_ctr_boolean(bool val,
                 struct ast_node * current_block,
-                struct ast_src_loc loc,
-                char * src)
+                struct ast_src_loc loc)
 {
     struct ast_node * node = NULL;
     if (!(node = malloc(sizeof(struct ast_node)))) {
         fprintf(stderr, "Failed allocating node.\n");
-        ast_print_src(loc, src);
+        ast_print_src(loc);
         goto error;
     }
 
@@ -106,7 +102,6 @@ ast_ctr_boolean(bool val,
         .type = AST_SCALAR,
         .current_block = current_block,
         .loc = loc,
-        .src = src,
         .scalar = {
             .type = AST_BOOLEAN,
             .boolean = val,
@@ -124,7 +119,8 @@ struct ast_node *
 ast_ctr_binop(enum ast_binop_type op,
               struct ast_node * left,
               struct ast_node * right,
-              struct ast_node * current_block)
+              struct ast_node * current_block,
+              struct ast_src_loc loc)
 {
     struct ast_node * node = NULL;
 
@@ -136,6 +132,7 @@ ast_ctr_binop(enum ast_binop_type op,
     node[0] = (struct ast_node) {
         .type = AST_BINOP,
         .current_block = current_block,
+        .loc = loc,
         .binop = {
             .op = op,
             .left = left,
@@ -149,17 +146,45 @@ error:
     return NULL;
 }
 
+struct ast_node *
+ast_ctr_unop(enum ast_unop_type op,
+             struct ast_node * child,
+             struct ast_node * current_block,
+             struct ast_src_loc loc)
+{
+    struct ast_node * node = NULL;
+
+    if (!(node = malloc(sizeof(struct ast_node)))) {
+        fprintf(stderr, "Failed allocating node.\n");
+        goto error;
+    }
+
+    node[0] = (struct ast_node) {
+        .type = AST_UNOP,
+        .current_block = current_block,
+        .loc = loc,
+        .unop = {
+            .op = op,
+            .child = child,
+        }
+    };
+    return node;
+
+error:
+    if (node) free(node);
+    return NULL;
+}
+
 
 struct ast_node *
 ast_ctr_prnt(struct ast_node * subexpr,
              struct ast_node * current_block,
-             struct ast_src_loc loc,
-             char * src)
+             struct ast_src_loc loc)
 {
     struct ast_node * node = NULL;
     if (!(node = malloc(sizeof(struct ast_node)))) {
         fprintf(stderr, "Failed allocating node.\n");
-        ast_print_src(loc, src);
+        ast_print_src(loc);
         goto error;
     }
 
@@ -167,7 +192,6 @@ ast_ctr_prnt(struct ast_node * subexpr,
         .type = AST_PRNT,
         .current_block = current_block,
         .loc = loc,
-        .src = src,
         .print.child = subexpr,
     };
     return node;
@@ -206,13 +230,12 @@ error:
 struct ast_node *
 ast_ctr_punctuator(enum ast_punctuator_type type,
                    struct ast_node * current_block,
-                   struct ast_src_loc loc,
-                   char * src)
+                   struct ast_src_loc loc)
 {
     struct ast_node * node = NULL;
     if (!(node = malloc(sizeof(struct ast_node)))) {
         fprintf(stderr, "Failed allocating node.\n");
-        ast_print_src(loc, src);
+        ast_print_src(loc);
         goto error;
     }
 
@@ -220,7 +243,6 @@ ast_ctr_punctuator(enum ast_punctuator_type type,
         .type = AST_PUNCTUATOR,
         .current_block = current_block,
         .loc = loc,
-        .src = src,
         .punctuator = type,
     };
     return node;
@@ -302,8 +324,14 @@ ast_print_texttree_r(struct ast_node *root,
         break;
     case AST_BINOP:
         fprintf(strm, "%s: %s\n", astk_kind_to_str(AST_BINOP), astk_binop_to_str(root->binop.op));
+
         ast_print_texttree_r(root->binop.left,  strm, prefix, plen + clen, 0);
         ast_print_texttree_r(root->binop.right, strm, prefix, plen + clen, 1);
+        break;
+    case AST_UNOP:
+        fprintf(strm, "%s: %s\n", astk_kind_to_str(AST_UNOP), astk_unop_to_str(root->unop.op));
+
+        ast_print_texttree_r(root->unop.child,  strm, prefix, plen + clen, 0);
         break;
     case AST_PRNT:
         fprintf(strm, "%s\n", astk_kind_to_str(AST_PRNT));
@@ -357,6 +385,9 @@ ast_to_dot(struct ast_node * root,
     case AST_BINOP:
         fprintf(strm, "  node%d [label=\"BINOP: %s\"];\n", my_id, astk_binop_to_str(root->binop.op));
         break;
+    case AST_UNOP:
+        fprintf(strm, "  node%d [label=\"UNOP: %s\"];\n", my_id, astk_unop_to_str(root->unop.op));
+        break;
     case AST_PUNCTUATOR:
         fprintf(strm, "  node%d [label=\"PUNCTUATOR: %s\"];\n", my_id, astk_punc_to_str(root->punctuator));
         break;
@@ -372,6 +403,9 @@ ast_to_dot(struct ast_node * root,
     case AST_BINOP:
         ast_to_dot(root->binop.left,  strm, my_id, dot_id);
         ast_to_dot(root->binop.right, strm, my_id, dot_id);
+        break;
+    case AST_UNOP:
+        ast_to_dot(root->unop.child,  strm, my_id, dot_id);
         break;
     case AST_PRNT:
         ast_to_dot(root->print.child, strm, my_id, dot_id);
@@ -414,6 +448,9 @@ ast_delete(struct ast_node ** root)
         ast_delete(&(*root)->binop.left);
         ast_delete(&(*root)->binop.right);
         break;
+    case AST_UNOP:
+        ast_delete(&(*root)->unop.child);
+        break;
     case AST_PRNT:
         ast_delete(&(*root)->print.child);
         break;
@@ -430,7 +467,6 @@ ast_delete(struct ast_node ** root)
         break;
     }
     free(*root);
-    free((*root)->src);
     *root = NULL;
 }
 
@@ -468,6 +504,9 @@ ast_finalize_r(struct ast_node * node,
     case AST_BINOP:
         ast_finalize_r(node->binop.left,  containing_block);
         ast_finalize_r(node->binop.right, containing_block);
+        break;
+    case AST_UNOP:
+        ast_finalize_r(node->unop.child,  containing_block);
         break;
     case AST_PRNT:
         ast_finalize_r(node->print.child, containing_block);
