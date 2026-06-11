@@ -29,11 +29,13 @@ int  cg_alloc_register_sym(struct cg_ctx * ctx, int symid, int lineno);
 
 union vm_instr_view cg_generate_const_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
 union vm_instr_view cg_generate_binop_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
+union vm_instr_view cg_generate_unop_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
 union vm_instr_view cg_generate_prnt_asn( struct cg_ctx * ctx, struct ir_stmt stmt);
 
 int cg_scalar_to_int(struct ir_scalar scalar);
 
 enum vm_op cg_ir_to_vm_binop(enum ir_binop op);
+enum vm_op cg_ir_to_vm_unop(enum ir_unop op);
 
 /******************
  * Implmentations *
@@ -146,6 +148,10 @@ cg_get_last_use_rec(struct darr * luse, struct ir_unit * unit)
         if (!(cg_update_last_use(luse, unit->stmt.binop_asn.val2->id, unit->stmt.lineno, none))) return false;
         return true;
     }
+    case IR_UNOP_ASSIGNMENT: {
+        if (!(cg_update_last_use(luse, unit->stmt.unop_asn.val->id, unit->stmt.lineno, none))) return false;
+        return true;
+    }
     case IR_PRINT:
         if (!(cg_update_last_use(luse, unit->stmt.print.val->id, unit->stmt.lineno, none))) return false;
         return true;
@@ -189,6 +195,11 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
     }
     case IR_BINOP_ASSIGNMENT: {
         union vm_instr_view view = cg_generate_binop_asn(ctx, unit->stmt);
+        if (!darr_push_back(program, &view)) return false;
+        return true;
+    }
+    case IR_UNOP_ASSIGNMENT: {
+        union vm_instr_view view = cg_generate_unop_asn(ctx, unit->stmt);
         if (!darr_push_back(program, &view)) return false;
         return true;
     }
@@ -262,6 +273,19 @@ cg_generate_binop_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
 }
 
 union vm_instr_view
+cg_generate_unop_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
+{
+    union vm_instr_view view = {
+        .un = {
+            .op   = cg_ir_to_vm_unop(stmt.unop_asn.op),
+            .dest = cg_alloc_register_sym(ctx, stmt.unop_asn.dest->id, stmt.lineno),
+            .arg = cg_alloc_register_sym(ctx, stmt.unop_asn.val->id, stmt.lineno),
+        }
+    };
+    return view;;
+}
+
+union vm_instr_view
 cg_generate_prnt_asn( struct cg_ctx * ctx, struct ir_stmt stmt)
 {
     uint16_t flags = 0;
@@ -300,5 +324,21 @@ cg_ir_to_vm_binop(enum ir_binop op)
     case IR_AND: return VM_AND;
     case IR_OR : return VM_OR;
     case IR_XOR: return VM_XOR;
+    case IR_LT: return VM_LT;
+    case IR_LE: return VM_LE;
+    case IR_GT: return VM_GT;
+    case IR_GE: return VM_GE;
+    case IR_NE: return VM_NE;
+    case IR_EQ: return VM_EQ;
+    }
+}
+
+
+enum vm_op
+cg_ir_to_vm_unop(enum ir_unop op)
+{
+    switch (op) {
+    case IR_NEG: return VM_NEG;
+    case IR_NOT: return VM_NOT;
     }
 }

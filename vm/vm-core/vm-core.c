@@ -84,7 +84,7 @@ vm_exec_un(struct vm * vm, union vm_instr_view view)
     switch (view.un.op) {
     case VM_NOT: vm->state.r[view.un.dest] = !vm->state.r[view.un.arg]; return true;
     case VM_NEG: vm->state.r[view.un.dest] = -vm->state.r[view.un.arg]; return true;
-    default: fprintf(stderr, "[VM]: Wrong dispatch for binary op."); return false;
+    default: fprintf(stderr, "[VM]: Wrong dispatch for unary op."); return false;
     };
 }
 
@@ -97,7 +97,7 @@ vm_exec_print(struct vm * vm, union vm_instr_view view)
     if (view.print.flags & VM_PRNT_BOOLEAN)
         fprintf(vm->ctx.print_stream, "%s\n", bool_to_str(vm->state.r[view.print.reg]));
     else
-        fprintf(vm->ctx.print_stream, "%d\n", view.print.reg);
+        fprintf(vm->ctx.print_stream, "%d\n", vm->state.r[view.print.reg]);
 
     return true;
 }
@@ -192,6 +192,7 @@ vm_run(struct vm * vm)
         case VM_NEG:
         case VM_NOT:
             if (!(ok = vm_exec_un(vm, view))) goto panic;
+            break;
         case VM_PRNT:
             if (!(ok= vm_exec_print(vm, view))) goto panic;
             break;
