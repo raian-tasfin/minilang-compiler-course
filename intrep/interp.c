@@ -1,6 +1,7 @@
 #include "interp.h"
 #include "../darr/darr.h"
 #include "../boolean/boolean.h"
+#include "../op/opstr.h"
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -23,25 +24,57 @@ ir_binop_from_ast(enum ast_binop_type op)
     case AST_DIV: return IR_DIV;
     case AST_MOD: return IR_MOD;
     case AST_AND: return IR_AND;
-    case AST_OR:  return IR_OR;
+    case AST_OR : return IR_OR;
     case AST_XOR: return IR_XOR;
+    case AST_LT : return IR_LT;
+    case AST_LE : return IR_LE;
+    case AST_GT : return IR_GT;
+    case AST_GE : return IR_GE;
+    case AST_NE : return IR_NE;
+    case AST_EQ : return IR_EQ;
+    }
+}
+
+enum ir_unop
+ir_unop_from_ast(enum ast_unop_type op)
+{
+    switch (op) {
+    case AST_NEG: return IR_NEG;
+    case AST_NOT: return IR_NOT;
     }
 }
 
 char *
-ir_opch(enum ir_binop op)
+ir_binopch(enum ir_binop op)
 {
     switch (op) {
-    case IR_ADD: return "+" ;
-    case IR_SUB: return "-" ;
-    case IR_MUL: return "*" ;
-    case IR_DIV: return "/" ;
-    case IR_MOD: return "%" ;
-    case IR_AND: return "&&";
-    case IR_OR : return "||";
-    case IR_XOR: return "^^" ;
+    case IR_ADD: return ADD_STR;
+    case IR_SUB: return SUB_STR;
+    case IR_MUL: return MUL_STR;
+    case IR_DIV: return DIV_STR;
+    case IR_MOD: return MOD_STR;
+    case IR_AND: return AND_STR;
+    case IR_OR : return OR_STR;
+    case IR_XOR: return XOR_STR;
+    case IR_LT : return LT_STR;
+    case IR_LE : return LE_STR;
+    case IR_GT : return GT_STR;
+    case IR_GE : return GE_STR;
+    case IR_NE : return NE_STR;
+    case IR_EQ : return EQ_STR;
     }
 }
+
+
+char *
+ir_unopch(enum ir_unop op)
+{
+    switch (op) {
+    case IR_NEG: return NEG_STR;
+    case IR_NOT: return NOT_STR;
+    }
+}
+
 
 
 struct ir_sym *
@@ -99,6 +132,7 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
         return dest;
     }
     case AST_BINOP: {
+        /* Destination type */
         enum ir_scalar_type dest_type;
         switch (node->binop.op) {
         case AST_ADD:
@@ -109,6 +143,12 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
             dest_type = IR_INTEGER;
             break;
         }
+        case AST_LT:
+        case AST_LE:
+        case AST_GT:
+        case AST_GE:
+        case AST_NE:
+        case AST_EQ:
         case AST_AND:
         case AST_OR:
         case AST_XOR: {
@@ -130,6 +170,32 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
                     .dest = dest,
                     .val1 = val1,
                     .val2 = val2,
+                }
+            },
+        };
+
+        darr_push_back(root_unit->block, &unit);
+        return dest;
+    }
+    case AST_UNOP: {
+        /* destination type */
+        enum ir_scalar_type dest_type;
+        switch (node->unop.op) {
+        case AST_NEG: dest_type = IR_INTEGER; break;
+        case AST_NOT: dest_type = IR_BOOLEAN; break;
+        }
+        struct ir_sym * dest = ir_sym_new(NULL, dest_type, var_id);
+        struct ir_sym * val = ir_prog_generate_rec(root_unit, node->unop.child, var_id, lineno);
+
+        struct ir_unit unit = {
+            .type = IR_STMT,
+            .stmt = {
+                .type = IR_UNOP_ASSIGNMENT,
+                .lineno = ++(*lineno),
+                .unop_asn = {
+                    .op = ir_unop_from_ast(node->unop.op),
+                    .dest = dest,
+                    .val  = val,
                 }
             },
         };
@@ -288,8 +354,21 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
                    "%7s = %7s %3s %7s\n",
                    dest_name,
                    val1,
-                   ir_opch(unit->stmt.binop_asn.op),
+                   ir_binopch(unit->stmt.binop_asn.op),
                    val2);
+        return;
+    }
+    case IR_UNOP_ASSIGNMENT: {
+        char dest_name[65];
+        char val[65];
+        ir_sym_to_str(unit->stmt.unop_asn.dest, dest_name);
+        ir_sym_to_str(unit->stmt.unop_asn.val, val);
+        ir_fprintf(ctx,
+                   "%7s = %7s %3s %7s\n",
+                   dest_name,
+                   "",
+                   ir_unopch(unit->stmt.unop_asn.op),
+                   val);
         return;
     }
     case IR_PRINT: {

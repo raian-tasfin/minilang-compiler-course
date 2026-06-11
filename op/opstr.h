@@ -15,6 +15,14 @@
 
 #define NOT_STR "!"
 
+#define LT_STR "<"
+#define LE_STR "<="
+#define GT_STR ">"
+#define GE_STR ">="
+#define NE_STR "!="
+#define EQ_STR "=="
+
+
 #define LPAREN_STR "("
 #define RPAREN_STR ")"
 

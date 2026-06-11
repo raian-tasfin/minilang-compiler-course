@@ -13,6 +13,7 @@ enum ir_unit_type {
 enum ir_stmt_type {
     IR_CONST_ASSIGNMENT,
     IR_BINOP_ASSIGNMENT,
+    IR_UNOP_ASSIGNMENT,
     IR_PRINT,
 };
 
@@ -29,6 +30,21 @@ enum ir_binop {
     IR_AND,
     IR_OR,
     IR_XOR,
+    IR_LT,
+    IR_LE,
+    IR_GT,
+    IR_GE,
+    IR_NE,
+    IR_EQ,
+};
+
+
+/*******************
+ * Unary Operators *
+ *******************/
+enum ir_unop {
+    IR_NEG,
+    IR_NOT,
 };
 
 
@@ -75,6 +91,12 @@ struct ir_stmt_binop_asn {
     struct ir_sym * val2;
 };
 
+struct ir_stmt_unop_asn {
+    enum ir_unop op;
+    struct ir_sym * dest;
+    struct ir_sym * val;
+};
+
 struct ir_stmt_print {
     struct ir_sym * val;
 };
@@ -85,6 +107,7 @@ struct ir_stmt {
     union {
         struct ir_stmt_const_asn const_asn;
         struct ir_stmt_binop_asn binop_asn;
+        struct ir_stmt_unop_asn  unop_asn;
         struct ir_stmt_print     print;
     };
 };
