@@ -46,7 +46,7 @@ FALSE_STR False
 ">="                     { lxr_process(GE,  yylval, yylloc, yyscanner); }
 "!="                     { lxr_process(NE,  yylval, yylloc, yyscanner); }
 "=="                     { lxr_process(EQ,  yylval, yylloc, yyscanner); }
-"<"                      { lxr_process(LT,  yylval, yylloc, yyscanner); } 
+"<"                      { lxr_process(LT,  yylval, yylloc, yyscanner); }
 ">"                      { lxr_process(GT,  yylval, yylloc, yyscanner); }
 
 "("                      { lxr_process(LPRN,   yylval, yylloc, yyscanner); }
