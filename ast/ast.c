@@ -324,7 +324,7 @@ ast_ctr_asn(char * name,
     }
 
     node[0] = (struct ast_node) {
-        .type = AST_DECLARATION,
+        .type = AST_ASSIGNMENT,
         .current_block = current_block,
         .loc = loc,
         .asn = {
@@ -418,7 +418,7 @@ ast_print_texttree_r(struct ast_node *root,
     case AST_UNOP:
         fprintf(strm, "%s: %s\n", astk_kind_to_str(AST_UNOP), astk_unop_to_str(root->unop.op));
 
-        ast_print_texttree_r(root->unop.child,  strm, prefix, plen + clen, 0);
+        ast_print_texttree_r(root->unop.child,  strm, prefix, plen + clen, 1);
         break;
     case AST_PRNT:
         fprintf(strm, "%s\n", astk_kind_to_str(AST_PRNT));
@@ -426,6 +426,21 @@ ast_print_texttree_r(struct ast_node *root,
         break;
     case AST_PUNCTUATOR:
         fprintf(strm, "%s\n", astk_punc_to_str(root->punctuator));
+        break;
+    case AST_IDENT:
+        fprintf(strm, "%s: %s\n", astk_kind_to_str(AST_IDENT), root->ident.name);
+        break;
+    case AST_DECLARATION:
+        fprintf(strm, "%s: %s <%s>\n",
+                astk_kind_to_str(AST_DECLARATION),
+                root->decl.name,
+                astk_scalar_to_str(root->decl.type));
+        if (root->decl.rhs) ast_print_texttree_r(root->decl.rhs, strm, prefix, plen + clen, 1);
+        break;
+    case AST_ASSIGNMENT:
+        fprintf(strm, "AST_ASSIGNMENT: %s\n", root->asn.name);
+        if (root->asn.rhs)
+            ast_print_texttree_r(root->asn.rhs, strm, prefix, plen + clen, 1);
         break;
     default:
         fprintf(strm, "%s\n", astk_kind_to_str(root->type));
@@ -478,6 +493,18 @@ ast_to_dot(struct ast_node * root,
     case AST_PUNCTUATOR:
         fprintf(strm, "  node%d [label=\"PUNCTUATOR: %s\"];\n", my_id, astk_punc_to_str(root->punctuator));
         break;
+    case AST_IDENT:
+        fprintf(strm, "  node%d [label=\"IDENTIFIER: %s\"];\n", my_id, root->ident.name);
+        break;
+    case AST_DECLARATION:
+        fprintf(strm, "  node%d [label=\"DECLARATION: %s <%s>\"];\n",
+                my_id,
+                root->decl.name,
+                astk_scalar_to_str(root->decl.type));
+        break;
+    case AST_ASSIGNMENT:
+        fprintf(strm, "  node%d [label=\"AST_ASSIGNMENT: %s\"];\n", my_id, root->asn.name);
+        break;
     default:
         fprintf(strm, "  node%d [label=\"%s\"];\n", my_id, astk_kind_to_str(root->type));
         break;
@@ -496,6 +523,12 @@ ast_to_dot(struct ast_node * root,
         break;
     case AST_PRNT:
         ast_to_dot(root->print.child, strm, my_id, dot_id);
+        break;
+    case AST_DECLARATION:
+        ast_to_dot(root->decl.rhs, strm, my_id, dot_id);
+        break;
+    case AST_ASSIGNMENT:
+        ast_to_dot(root->asn.rhs, strm, my_id, dot_id);
         break;
     case AST_BLOCK: {
         int n = darr_size(root->block.statements);
@@ -550,6 +583,17 @@ ast_delete(struct ast_node ** root)
         darr_destroy(&(*root)->block.statements);
         break;
     }
+    case AST_IDENT:
+        free((*root)->ident.name);
+        break;
+    case AST_DECLARATION:
+        free((*root)->decl.name);
+        ast_delete(&(*root)->decl.rhs);
+        break;
+    case AST_ASSIGNMENT:
+        free((*root)->asn.name);
+        ast_delete(&(*root)->asn.rhs);
+        break;
     case AST_PUNCTUATOR:
         break;
     }
@@ -597,6 +641,12 @@ ast_finalize_r(struct ast_node * node,
         break;
     case AST_PRNT:
         ast_finalize_r(node->print.child, containing_block);
+        break;
+    case AST_DECLARATION:
+        ast_finalize_r(node->decl.rhs, containing_block);
+        break;
+    case AST_ASSIGNMENT:
+        ast_finalize_r(node->asn.rhs, containing_block);
         break;
     case AST_SCALAR:
     case AST_PUNCTUATOR:

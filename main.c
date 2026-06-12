@@ -79,12 +79,12 @@ int main(int argc, char * const * argv)
     ast_finalize(ast_root);
 
 
-   /* /\***************** */
-   /*  * AST Reporting * */
-   /*  *****************\/ */
-   /*  ast_ctx = ast_ctx_init(cliopts.ast); */
-   /*  if (ast_ctx.dot) ast_print_dot(ast_root, ast_ctx.dot); */
-   /*  if (ast_ctx.text) ast_print_texttree(ast_root, ast_ctx.text); */
+   /*****************
+    * AST Reporting *
+    *****************/
+    ast_ctx = ast_ctx_init(cliopts.ast);
+    if (ast_ctx.dot) ast_print_dot(ast_root, ast_ctx.dot);
+    if (ast_ctx.text) ast_print_texttree(ast_root, ast_ctx.text);
 
 
    /*  /\********************* */
