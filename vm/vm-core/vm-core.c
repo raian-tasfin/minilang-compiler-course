@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "../darr/darr.h"
 #include "../boolean/boolean.h"
+#include <stdio.h>
 
 
 /*********************
@@ -89,6 +90,34 @@ vm_exec_un(struct vm * vm, union vm_instr_view view)
 }
 
 static bool
+vm_exec_load(struct vm * vm, union vm_instr_view view)
+{
+    if (!vmcr_ensure_vm(vm)) return false;
+    vmcr_ensure_op_dispatch(view, VM_LOAD);
+    int offset = vm->state.r[view.load.ofst_reg];
+    if (offset >= VM_MEMORY_LIM)  {
+        fprintf(stderr, "[VM]: Offset %x overflows memory %x\n", offset, VM_MEMORY_LIM);
+        return false;
+    }
+    vm->state.r[view.load.dest_reg] = vm->state.m[view.load.ofst_reg];
+    return true;
+}
+
+static bool
+vm_exec_store(struct vm * vm, union vm_instr_view view)
+{
+    if (!vmcr_ensure_vm(vm)) return false;
+    vmcr_ensure_op_dispatch(view, VM_STORE);
+    int offset = vm->state.r[view.store.ofst_reg];
+    if (offset >= VM_MEMORY_LIM)  {
+        fprintf(stderr, "[VM]: Offset %x overflows memory %x\n", offset, VM_MEMORY_LIM);
+        return false;
+    }
+    vm->state.m[view.store.ofst_reg] = vm->state.r[view.store.src_reg];
+    return true;
+}
+
+static bool
 vm_exec_print(struct vm * vm, union vm_instr_view view)
 {
     if (!vmcr_ensure_vm(vm)) return false;
@@ -111,26 +140,28 @@ char *
 vm_op_to_str(enum vm_op op)
 {
     switch (op){
-    case VM_ERR: return "ERR";
-    case VM_MOV: return "MOV";
-    case VM_ADD: return "ADD";
-    case VM_SUB: return "SUB";
-    case VM_MUL: return "MUL";
-    case VM_DIV: return "DIV";
-    case VM_MOD: return "MOD";
-    case VM_AND: return "AND";
-    case VM_OR: return "OR";
-    case VM_XOR: return "XOR";
-    case VM_NOT: return "NOT";
-    case VM_NEG: return "NEG";
-    case VM_LT: return "LT";
-    case VM_LE: return "LE";
-    case VM_GT: return "GT";
-    case VM_GE: return "GE";
-    case VM_NE: return "NE";
-    case VM_EQ: return "EQ";
-    case VM_PRNT: return "PRNT";
-    case VM_EXIT: return "EXIT";
+    case VM_ERR:   return "ERR";
+    case VM_MOV:   return "MOV";
+    case VM_ADD:   return "ADD";
+    case VM_SUB:   return "SUB";
+    case VM_MUL:   return "MUL";
+    case VM_DIV:   return "DIV";
+    case VM_MOD:   return "MOD";
+    case VM_AND:   return "AND";
+    case VM_OR:    return "OR";
+    case VM_XOR:   return "XOR";
+    case VM_NOT:   return "NOT";
+    case VM_NEG:   return "NEG";
+    case VM_LT:    return "LT";
+    case VM_LE:    return "LE";
+    case VM_GT:    return "GT";
+    case VM_GE:    return "GE";
+    case VM_NE:    return "NE";
+    case VM_EQ:    return "EQ";
+    case VM_LOAD:  return "LOAD";
+    case VM_STORE: return "STORE";
+    case VM_PRNT:  return "PRNT";
+    case VM_EXIT:  return "EXIT";
     default: return "UNKNOWN";
     }
 }
@@ -192,6 +223,12 @@ vm_run(struct vm * vm)
         case VM_NEG:
         case VM_NOT:
             if (!(ok = vm_exec_un(vm, view))) goto panic;
+            break;
+        case VM_LOAD:
+            if (!(ok = vm_exec_load(vm, view))) goto panic;
+            break;
+        case VM_STORE:
+            if (!(ok = vm_exec_store(vm, view))) goto panic;
             break;
         case VM_PRNT:
             if (!(ok= vm_exec_print(vm, view))) goto panic;

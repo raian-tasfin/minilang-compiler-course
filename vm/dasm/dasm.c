@@ -58,6 +58,13 @@ vmdasm_dasm(struct darr * program, FILE * outstream)
                     view->un.dest,
                     view->un.arg);
             break;
+            /* Memory operations */
+        case VM_LOAD:
+            fprintf(outstream, "\tr%d\t%d", view->load.dest_reg, view->store.ofst_reg);
+            break;
+        case VM_STORE:
+            fprintf(outstream, "\tr%d\t%d", view->store.ofst_reg, view->store.src_reg);
+            break;
         case VM_PRNT: {
             fprintf(outstream, "\tr%d", view->print.reg);
             break;

@@ -26,6 +26,8 @@ vm_op : uint8_t {
     VM_GE,
     VM_NE,
     VM_EQ,
+    VM_LOAD,
+    VM_STORE,
     VM_PRNT,
     VM_EXIT,
 };
@@ -52,6 +54,20 @@ struct vm_mov_instruction {
     enum vm_op op: 8;
     uint8_t dest: 8;
     enum vm_mov_flag flag : 16;
+};
+
+/* Load Instruction */
+struct vm_load_instruction {
+    enum vm_op op: 8;
+    uint8_t dest_reg: 8;
+    uint8_t ofst_reg: 8;
+};
+
+/* Store Instruction */
+struct vm_store_instruction {
+    enum vm_op op: 8;
+    uint8_t ofst_reg: 8;
+    uint8_t src_reg: 8;
 };
 
 /* Binary Operation */
@@ -82,12 +98,14 @@ struct vm_print_instruction {
     uint16_t flags: 16;
 };
 
-/* Combinede */
+/* Combined */
 union vm_instr_view {
     struct vm_instruction       base;
     struct vm_mov_instruction   mov;
     struct vm_binop_instruction bin;
     struct vm_unop_instruction  un;
+    struct vm_load_instruction  load;
+    struct vm_store_instruction store;
     struct vm_print_instruction print;
     uint32_t                    raw;
 };

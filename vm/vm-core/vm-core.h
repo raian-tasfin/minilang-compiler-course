@@ -13,6 +13,7 @@
  * Context *
  ***********/
 #define VM_REGISTER_CNT 256
+#define VM_MEMORY_LIM   0x10000000
 
 struct vm {
     /* Context to run */
@@ -24,6 +25,7 @@ struct vm {
     struct {
         struct darr * program;
         int32_t r[VM_REGISTER_CNT];
+        int32_t m[VM_MEMORY_LIM] ;
         uint32_t ip;
     } state;
 };
