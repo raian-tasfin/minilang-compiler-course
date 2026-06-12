@@ -45,6 +45,10 @@ struct ast_scalar_node {
     };
 };
 
+struct ast_ident_node {
+    char * name;
+};
+
 struct ast_binop_node {
     enum ast_binop_type op;
     struct ast_node * left;
@@ -65,6 +69,19 @@ struct ast_block_node {
     struct ast_node * parent_block;
 };
 
+
+
+struct ast_decl_node {
+    char * name;
+    enum ast_scalar_type type;
+    struct ast_node * rhs;
+};
+
+struct ast_asn_node {
+    char * name;
+    struct ast_node * rhs;
+};
+
 struct ast_node {
     enum ast_kind type;
     struct ast_node * current_block;
@@ -76,6 +93,9 @@ struct ast_node {
         struct ast_print_node print;
         struct ast_block_node block;
         enum ast_punctuator_type punctuator;
+        struct ast_decl_node decl;
+        struct ast_asn_node asn;
+        struct ast_ident_node ident;
     };
 };
 
@@ -125,6 +145,24 @@ struct ast_node *
 ast_ctr_punctuator(enum ast_punctuator_type type,
                    struct ast_node * current_block,
                    struct ast_src_loc loc);
+
+struct ast_node *
+ast_ctr_ident(char * name,
+              struct ast_node * current_block,
+              struct ast_src_loc loc);
+
+struct ast_node *
+ast_ctr_decl(enum ast_scalar_type type,
+             char * name,
+             struct ast_node * expr,
+             struct ast_node * current_block,
+             struct ast_src_loc loc);
+
+struct ast_node *
+ast_ctr_asn(char * name,
+            struct ast_node * expr,
+            struct ast_node * current_block,
+            struct ast_src_loc loc);
 
 void ast_delete(struct ast_node ** root);
 void ast_finalize(struct ast_node * root);

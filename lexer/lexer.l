@@ -21,42 +21,49 @@ FALSE_STR False
 
 %%
 
-[[:blank:]]+             { lxr_process(LEX_BLNK, yylval, yylloc, yyscanner); }
-{cont}                   { lxr_process(LEX_CONT, yylval, yylloc, yyscanner); }
+[[:blank:]]+               { lxr_process(LEX_BLNK, yylval, yylloc, yyscanner); }
+{cont}                     { lxr_process(LEX_CONT, yylval, yylloc, yyscanner); }
 
-"print"                  { lxr_process(PRNT, yylval, yylloc, yyscanner); }
+"print"                    { lxr_process(PRNT, yylval, yylloc, yyscanner); }
 
-{TRUE_STR}               { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }
-{FALSE_STR}              { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }
+{TRUE_STR}                 { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }
+{FALSE_STR}                { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }
 
-[[:digit:]]+             { lxr_process(INTEGER, yylval, yylloc, yyscanner); }
+[[:digit:]]+               { lxr_process(INTEGER, yylval, yylloc, yyscanner); }
 
-"+"                      { lxr_process(ADD, yylval, yylloc, yyscanner); }
-"-"                      { lxr_process(SUB, yylval, yylloc, yyscanner); }
-"*"                      { lxr_process(MUL, yylval, yylloc, yyscanner); }
-"/"                      { lxr_process(DIV, yylval, yylloc, yyscanner); }
-"%"                      { lxr_process(MOD, yylval, yylloc, yyscanner); }
+"+"                        { lxr_process(ADD, yylval, yylloc, yyscanner); }
+"-"                        { lxr_process(SUB, yylval, yylloc, yyscanner); }
+"*"                        { lxr_process(MUL, yylval, yylloc, yyscanner); }
+"/"                        { lxr_process(DIV, yylval, yylloc, yyscanner); }
+"%"                        { lxr_process(MOD, yylval, yylloc, yyscanner); }
 
-"&&"                     { lxr_process(AND, yylval, yylloc, yyscanner); }
-"||"                     { lxr_process(OR,  yylval, yylloc, yyscanner); }
-"^^"                     { lxr_process(XOR, yylval, yylloc, yyscanner); }
+"&&"                       { lxr_process(AND, yylval, yylloc, yyscanner); }
+"||"                       { lxr_process(OR,  yylval, yylloc, yyscanner); }
+"^^"                       { lxr_process(XOR, yylval, yylloc, yyscanner); }
 
-"!"                      { lxr_process(NOT, yylval, yylloc, yyscanner); }
-"<="                     { lxr_process(LE,  yylval, yylloc, yyscanner); }
-">="                     { lxr_process(GE,  yylval, yylloc, yyscanner); }
-"!="                     { lxr_process(NE,  yylval, yylloc, yyscanner); }
-"=="                     { lxr_process(EQ,  yylval, yylloc, yyscanner); }
-"<"                      { lxr_process(LT,  yylval, yylloc, yyscanner); }
-">"                      { lxr_process(GT,  yylval, yylloc, yyscanner); }
+"!"                        { lxr_process(NOT, yylval, yylloc, yyscanner); }
+"<="                       { lxr_process(LE,  yylval, yylloc, yyscanner); }
+">="                       { lxr_process(GE,  yylval, yylloc, yyscanner); }
+"!="                       { lxr_process(NE,  yylval, yylloc, yyscanner); }
+"=="                       { lxr_process(EQ,  yylval, yylloc, yyscanner); }
+"<"                        { lxr_process(LT,  yylval, yylloc, yyscanner); }
+">"                        { lxr_process(GT,  yylval, yylloc, yyscanner); }
 
-"("                      { lxr_process(LPRN,   yylval, yylloc, yyscanner); }
-")"                      { lxr_process(RPRN,   yylval, yylloc, yyscanner); }
+"("                        { lxr_process(LPRN,   yylval, yylloc, yyscanner); }
+")"                        { lxr_process(RPRN,   yylval, yylloc, yyscanner); }
 
-"{"                      { lxr_process(LBRACE, yylval, yylloc, yyscanner); }
-"}"                      { lxr_process(RBRACE, yylval, yylloc, yyscanner); }
+"{"                        { lxr_process(LBRACE, yylval, yylloc, yyscanner); }
+"}"                        { lxr_process(RBRACE, yylval, yylloc, yyscanner); }
 
-\n                       { lxr_process(NEWLINE, yylval, yylloc, yyscanner); }
+"int"                      { lxr_process(TYPE_SPEC_INTEGER, yylval, yylloc, yyscanner); }
+"bool"                     { lxr_process(TYPE_SPEC_BOOLEAN, yylval, yylloc, yyscanner); }
+[[:alpha:]_][[:alnum:]_]*  { lxr_process(IDENT, yylval, yylloc, yyscanner); }
 
-.                        { lxr_process(LEX_ERR, yylval, yylloc, yyscanner); }
+"="                        { lxr_process(ASSIGN, yylval, yylloc, yyscanner); }
+
+
+\n                         { lxr_process(NEWLINE, yylval, yylloc, yyscanner); }
+
+.                          { lxr_process(LEX_ERR, yylval, yylloc, yyscanner); }
 
 %%

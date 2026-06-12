@@ -5,11 +5,14 @@
 /* Types of nodes with values */
 enum ast_kind {
     AST_SCALAR,
+    AST_IDENT,
     AST_BINOP,
     AST_UNOP,
     AST_PRNT,
     AST_BLOCK,
     AST_PUNCTUATOR,
+    AST_DECLARATION,
+    AST_ASSIGNMENT,
 };
 
 
@@ -58,7 +61,7 @@ char * astk_scalar_to_str(enum ast_scalar_type type);
 enum ast_binop_type
 astk_binop_from_tok(int token_type);
 
-enum ast_binop_type
+enum ast_unop_type
 astk_unop_from_tok(int token_type);
 
 #endif

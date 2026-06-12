@@ -91,6 +91,11 @@ ast_loc_span(YYLTYPE a, YYLTYPE b)
 %token LBRACE
 %token RBRACE
 
+%token TYPE_SPEC_INTEGER
+%token TYPE_SPEC_BOOLEAN
+%token ASSIGN
+%token <char*> IDENT
+
 
 /*******************************
  * Precedence & Associativity  *
@@ -115,7 +120,7 @@ ast_loc_span(YYLTYPE a, YYLTYPE b)
 /*******************************
  * Nonterminal Semantic Types  *
  *******************************/
-%type <struct ast_node *> expr program stmt block block_body
+%type <struct ast_node *> expr program stmt block block_body decl assign
 
 
 /***********
@@ -133,6 +138,8 @@ stmt:
   expr                       { $$ = $1; }
 | PRNT LPRN expr RPRN        { $$ = ast_ctr_prnt($3, NULL, ast_loc_from_bison(@1)); }
 | block                      { $$ = $1; }
+| decl
+| assign
 ;
 
 block:
@@ -148,9 +155,21 @@ block_body:
 | block_body NEWLINE         { $$ = $1; }
 ;
 
+decl:
+  TYPE_SPEC_INTEGER IDENT NEWLINE                { $$ = ast_ctr_decl(AST_INTEGER,  $2, NULL, NULL, ast_loc_span(@1,@2)); }
+| TYPE_SPEC_BOOLEAN IDENT NEWLINE                { $$ = ast_ctr_decl(AST_BOOLEAN, $2, NULL, NULL, ast_loc_span(@1,@2)); }
+| TYPE_SPEC_INTEGER IDENT ASSIGN expr NEWLINE    { $$ = ast_ctr_decl(AST_INTEGER,  $2, $4,   NULL, ast_loc_span(@1,@4)); }
+| TYPE_SPEC_BOOLEAN IDENT ASSIGN expr NEWLINE    { $$ = ast_ctr_decl(AST_BOOLEAN, $2, $4,   NULL, ast_loc_span(@1,@4)); }
+;
+
+assign:
+  IDENT ASSIGN expr NEWLINE  { $$ = ast_ctr_asn($1, $3, NULL, ast_loc_span(@1,@3)); }
+;
+
 expr:
   INTEGER               { $$ = ast_ctr_integer($1, NULL, ast_loc_from_bison(@1)); }
 | BOOLEAN               { $$ = ast_ctr_boolean($1, NULL, ast_loc_from_bison(@1)); }
+| IDENT                 { $$ = ast_ctr_ident($1, NULL, ast_loc_from_bison(@1));   }
 | expr ADD  expr        { $$ = ast_ctr_binop(astk_binop_from_tok(ADD), $1, $3, NULL, ast_loc_span(@1, @3)); }
 | expr SUB  expr        { $$ = ast_ctr_binop(astk_binop_from_tok(SUB), $1, $3, NULL, ast_loc_span(@1, @3)); }
 | expr MUL  expr        { $$ = ast_ctr_binop(astk_binop_from_tok(MUL), $1, $3, NULL, ast_loc_span(@1, @3)); }

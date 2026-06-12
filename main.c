@@ -79,62 +79,62 @@ int main(int argc, char * const * argv)
     ast_finalize(ast_root);
 
 
-   /*****************
-    * AST Reporting *
-    *****************/
-    ast_ctx = ast_ctx_init(cliopts.ast);
-    if (ast_ctx.dot) ast_print_dot(ast_root, ast_ctx.dot);
-    if (ast_ctx.text) ast_print_texttree(ast_root, ast_ctx.text);
+   /* /\***************** */
+   /*  * AST Reporting * */
+   /*  *****************\/ */
+   /*  ast_ctx = ast_ctx_init(cliopts.ast); */
+   /*  if (ast_ctx.dot) ast_print_dot(ast_root, ast_ctx.dot); */
+   /*  if (ast_ctx.text) ast_print_texttree(ast_root, ast_ctx.text); */
 
 
-    /*********************
-     * Semantic Analysis *
-     *********************/
-    if (!seman_type_check(ast_root, &sb)) {
-        exit_status = EXIT_FAILURE;
-        goto destruct;
-    }
+   /*  /\********************* */
+   /*   * Semantic Analysis * */
+   /*   *********************\/ */
+   /*  if (!seman_type_check(ast_root, &sb)) { */
+   /*      exit_status = EXIT_FAILURE; */
+   /*      goto destruct; */
+   /*  } */
 
 
-   /*******************************
-    * Intermediate Representation *
-    *******************************/
-    struct ir_unit * ir_program = ir_prog_generate(ast_root) ;
+   /* /\******************************* */
+   /*  * Intermediate Representation * */
+   /*  *******************************\/ */
+   /*  struct ir_unit * ir_program = ir_prog_generate(ast_root) ; */
 
-    /****************
-     * IR Reporting *
-     ****************/
-    ir_ctx = ir_ctx_init(&cliopts);
-    if (ir_ctx.err) {
-        exit_status = EXIT_FAILURE;
-        goto destruct;
-    }
-    ir_print(&ir_ctx, ir_program);
+   /*  /\**************** */
+   /*   * IR Reporting * */
+   /*   ****************\/ */
+   /*  ir_ctx = ir_ctx_init(&cliopts); */
+   /*  if (ir_ctx.err) { */
+   /*      exit_status = EXIT_FAILURE; */
+   /*      goto destruct; */
+   /*  } */
+   /*  ir_print(&ir_ctx, ir_program); */
 
-    /*******************
-     * Code Generation *
-     *******************/
-    if (cliopts.cg.generate) {
-        /* Ensure options */
-        if (!cliopts.cg.outpath) {
-            exit_status = EXIT_FAILURE;
-            goto destruct;
-        }
-        /* Ensure context */
-        if (!(cg_ctx = cg_ctx_init(ir_program))) {
-            exit_status = EXIT_FAILURE;
-            goto destruct;
-        }
-        program = cg_generate_code(cg_ctx);
-        /* Ensure output file */
-        if (!(cg_out = fopen(cliopts.cg.outpath, "wb"))) {
-            exit_status = EXIT_FAILURE;
-            goto destruct;
-        }
-        fwrite(cg_buffer(program),
-               darr_elem_size(program),
-               darr_size(program), cg_out);
-    }
+   /*  /\******************* */
+   /*   * Code Generation * */
+   /*   *******************\/ */
+   /*  if (cliopts.cg.generate) { */
+   /*      /\* Ensure options *\/ */
+   /*      if (!cliopts.cg.outpath) { */
+   /*          exit_status = EXIT_FAILURE; */
+   /*          goto destruct; */
+   /*      } */
+   /*      /\* Ensure context *\/ */
+   /*      if (!(cg_ctx = cg_ctx_init(ir_program))) { */
+   /*          exit_status = EXIT_FAILURE; */
+   /*          goto destruct; */
+   /*      } */
+   /*      program = cg_generate_code(cg_ctx); */
+   /*      /\* Ensure output file *\/ */
+   /*      if (!(cg_out = fopen(cliopts.cg.outpath, "wb"))) { */
+   /*          exit_status = EXIT_FAILURE; */
+   /*          goto destruct; */
+   /*      } */
+   /*      fwrite(cg_buffer(program), */
+   /*             darr_elem_size(program), */
+   /*             darr_size(program), cg_out); */
+   /*  } */
 
     /************
      * Destruct *

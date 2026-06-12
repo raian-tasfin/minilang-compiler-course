@@ -24,7 +24,7 @@ astk_binop_from_tok(int token_type)
 }
 
 
-enum ast_binop_type
+enum ast_unop_type
 astk_unop_from_tok(int token_type)
 {
     // unary sub is neg
@@ -40,12 +40,15 @@ char *
 astk_kind_to_str(enum ast_kind kind)
 {
     switch (kind) {
-    case AST_SCALAR:     return "AST_SCALAR";
-    case AST_BINOP:      return "AST_BINOP";
-    case AST_UNOP:       return "AST_UNOP";
-    case AST_PRNT:       return "AST_PRNT";
-    case AST_BLOCK:      return "AST_BLOCK";
-    case AST_PUNCTUATOR: return "AST_PUNCTUATOR";
+    case AST_SCALAR:      return "AST_SCALAR";
+    case AST_IDENT:      return "AST_IDENT";
+    case AST_BINOP:       return "AST_BINOP";
+    case AST_UNOP:        return "AST_UNOP";
+    case AST_PRNT:        return "AST_PRNT";
+    case AST_BLOCK:       return "AST_BLOCK";
+    case AST_PUNCTUATOR:  return "AST_PUNCTUATOR";
+    case AST_DECLARATION: return "AST_DECLARATION";
+    case AST_ASSIGNMENT:  return "AST_ASSIGNMENT";
     default: return "UNKNOWN";
     }
 }

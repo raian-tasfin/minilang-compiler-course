@@ -4,6 +4,7 @@
 #include "lex.yy.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "lexer_util.h"
 #include "../boolean/boolean.h"
 
@@ -60,33 +61,37 @@ char *
 lxr_toktostr(int token_type)
 {
     switch (token_type) {
-    case ADD:         return "ADD";
-    case SUB:         return "SUB";
-    case DIV:         return "DIV";
-    case MUL:         return "MUL";
-    case MOD:         return "MOD";
-    case AND:         return "AND";
-    case OR:          return "OR";
-    case XOR:         return "XOR";
-    case NOT:         return "NOT";
-    case LT:          return "LT";
-    case LE:          return "LE";
-    case GT:          return "GT";
-    case GE:          return "GE";
-    case NE:          return "NE";
-    case EQ:          return "EQ";
-    case INTEGER:     return "INTEGER";
-    case BOOLEAN:     return "BOOLEAN";
-    case LEX_BLNK:    return "LEX_BLNK";
-    case LEX_CONT:    return "LEX_CONT";
-    case LEX_ERR:     return "LEX_ERR";
-    case LBRACE:      return "LBRACE";
-    case LPRN:        return "LPRN";
-    case NEWLINE:     return "NEWLINE";
-    case RBRACE:      return "RBRACE";
-    case RPRN:        return "RPRN";
-    case PRNT:        return "PRNT";
-    default:          return "UNIDENTIFIED";
+    case LEX_BLNK:           return "LEX_BLNK";
+    case LEX_CONT:           return "LEX_CONT";
+    case NEWLINE:            return "NEWLINE";
+    case LEX_ERR:            return "LEX_ERR";
+    case INTEGER:            return "INTEGER";
+    case BOOLEAN:            return "BOOLEAN";
+    case ADD:                return "ADD";
+    case SUB:                return "SUB";
+    case MUL:                return "MUL";
+    case DIV:                return "DIV";
+    case MOD:                return "MOD";
+    case AND:                return "AND";
+    case OR:                 return "OR";
+    case XOR:                return "XOR";
+    case NOT:                return "NOT";
+    case LT:                 return "LT";
+    case LE:                 return "LE";
+    case GT:                 return "GT";
+    case GE:                 return "GE";
+    case NE:                 return "NE";
+    case EQ:                 return "EQ";
+    case LPRN:               return "LPRN";
+    case RPRN:               return "RPRN";
+    case PRNT:               return "PRNT";
+    case LBRACE:             return "LBRACE";
+    case RBRACE:             return "RBRACE";
+    case TYPE_SPEC_INTEGER:  return "TYPE_SPEC_INTEGER";
+    case TYPE_SPEC_BOOLEAN:  return "TYPE_SPEC_BOOLEAN";
+    case ASSIGN:             return "ASSIGN";
+    case IDENT:              return "IDENT";
+    default: return "UNIDENTIFIED";
     }
 }
 
@@ -96,10 +101,18 @@ lxr_print_token(int token_type,
                 struct lxr_ctx * ctx)
 {
     lxr_print(ctx, "%s", lxr_toktostr(token_type));
-    if (token_type == INTEGER && yylval) {
-        lxr_print(ctx, ": %d", yylval->INTEGER);
-    } else if (token_type == BOOLEAN && yylval) {
-        lxr_print(ctx, ": %s", yylval->BOOLEAN ? "True": "False");
+
+    // no additional value to print
+    if (!yylval) {
+        lxr_print(ctx, "\n");
+        return;
+    }
+
+    // additional value to print
+    switch (token_type) {
+    case INTEGER: lxr_print(ctx, ": %d", yylval->INTEGER); break;
+    case BOOLEAN: lxr_print(ctx, ": %s", yylval->BOOLEAN ? "True": "False"); break;
+    case IDENT:   lxr_print(ctx, ": %s", yylval->IDENT); break;
     }
     lxr_print(ctx, "\n");
 }
@@ -169,6 +182,18 @@ lxr_process_proc(int token_type,
     case GE:   lxr_print_token(GE,  yylval, ctx); return GE;
     case NE:   lxr_print_token(NE,  yylval, ctx); return NE;
     case EQ:   lxr_print_token(EQ,  yylval, ctx); return EQ;
+
+        /* Declaration and assignment */
+    case TYPE_SPEC_INTEGER: lxr_print_token(TYPE_SPEC_INTEGER,  yylval, ctx); return TYPE_SPEC_INTEGER;
+    case TYPE_SPEC_BOOLEAN: lxr_print_token(TYPE_SPEC_BOOLEAN,  yylval, ctx); return TYPE_SPEC_BOOLEAN;
+    case ASSIGN: lxr_print_token(ASSIGN,  yylval, ctx); return ASSIGN;
+
+    case IDENT: {
+        if (yylval) yylval->IDENT = strdup(yytext);
+        lxr_print_token(IDENT, yylval, ctx);
+        return IDENT;
+    }
+
 
         /* Keywords */
     case PRNT: lxr_print_token(PRNT, yylval, ctx); return PRNT;

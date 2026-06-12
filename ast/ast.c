@@ -252,6 +252,93 @@ error:
     return NULL;
 }
 
+struct ast_node *
+ast_ctr_ident(char * name,
+              struct ast_node * current_block,
+              struct ast_src_loc loc)
+{
+    struct ast_node * node = NULL;
+    if (!(node = malloc(sizeof(struct ast_node)))) {
+        fprintf(stderr, "Failed allocating node.\n");
+        ast_print_src(loc);
+        goto error;
+    }
+
+    node[0] = (struct ast_node) {
+        .type = AST_IDENT,
+        .current_block = current_block,
+        .loc = loc,
+        .ident = {
+            .name = name
+        },
+    };
+    return node;
+
+error:
+    if (node) free(node);
+    return NULL;
+}
+
+
+struct ast_node *
+ast_ctr_decl(enum ast_scalar_type type,
+             char * name,
+             struct ast_node * expr,
+             struct ast_node * current_block,
+             struct ast_src_loc loc)
+{
+    struct ast_node * node = NULL;
+    if (!(node = malloc(sizeof(struct ast_node)))) {
+        fprintf(stderr, "Failed allocating node.\n");
+        ast_print_src(loc);
+        goto error;
+    }
+
+    node[0] = (struct ast_node) {
+        .type = AST_DECLARATION,
+        .current_block = current_block,
+        .loc = loc,
+        .decl = {
+            .name = name,
+            .type = type,
+            .rhs = expr,
+        },
+    };
+    return node;
+error:
+    if (node) free(node);
+    return NULL;
+}
+
+struct ast_node *
+ast_ctr_asn(char * name,
+            struct ast_node * expr,
+            struct ast_node * current_block,
+            struct ast_src_loc loc)
+{
+    struct ast_node * node = NULL;
+    if (!(node = malloc(sizeof(struct ast_node)))) {
+        fprintf(stderr, "Failed allocating node.\n");
+        ast_print_src(loc);
+        goto error;
+    }
+
+    node[0] = (struct ast_node) {
+        .type = AST_DECLARATION,
+        .current_block = current_block,
+        .loc = loc,
+        .asn = {
+            .name = name,
+            .rhs = expr,
+        },
+    };
+    return node;
+error:
+    if (node) free(node);
+    return NULL;
+}
+
+
 
 /*********************
  * Text tree Drawing *
@@ -513,6 +600,7 @@ ast_finalize_r(struct ast_node * node,
         break;
     case AST_SCALAR:
     case AST_PUNCTUATOR:
+    case AST_IDENT:
     default:
         break;
     }
