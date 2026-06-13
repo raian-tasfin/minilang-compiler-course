@@ -136,7 +136,7 @@ program:
 ;
 
 stmt:
-  expr                       { $$ = $1; }
+  expr NEWLINE               { $$ = $1; }
 | PRNT LPRN expr RPRN        { $$ = ast_ctr_prnt($3, NULL, ast_loc_from_bison(@1)); }
 | block                      { $$ = $1; }
 | decl
@@ -152,7 +152,7 @@ block:
 
 block_body:
   stmt                       { $$ = ast_ctr_block(NULL); darr_push_back($$->block.statements, &$1); }
-| block_body NEWLINE stmt    { darr_push_back(($1)->block.statements, &$3); $$ = $1; }
+| block_body stmt            { darr_push_back(($1)->block.statements, &$2); $$ = $1; }
 | block_body NEWLINE         { $$ = $1; }
 ;
 
