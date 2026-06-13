@@ -75,7 +75,7 @@ ast_ctr_integer(int val,
         .current_block = current_block,
         .loc = loc,
         .scalar = {
-            .type = AST_INTEGER,
+            .type = SCAL_INTEGER,
             .integer = val,
         }
     };
@@ -103,7 +103,7 @@ ast_ctr_boolean(bool val,
         .current_block = current_block,
         .loc = loc,
         .scalar = {
-            .type = AST_BOOLEAN,
+            .type = SCAL_BOOLEAN,
             .boolean = val,
         }
     };
@@ -281,7 +281,7 @@ error:
 
 
 struct ast_node *
-ast_ctr_decl(enum ast_scalar_type type,
+ast_ctr_decl(enum scalar_type type,
              char * name,
              struct ast_node * expr,
              struct ast_node * current_block,
@@ -401,11 +401,11 @@ ast_print_texttree_r(struct ast_node *root,
     switch (root->type) {
     case AST_SCALAR:
         switch (root->scalar.type) {
-        case AST_INTEGER:
-            fprintf(strm, "%s: %d\n", astk_scalar_to_str(AST_INTEGER), root->scalar.integer);
+        case SCAL_INTEGER:
+            fprintf(strm, "%s: %d\n", scalar_type_to_str(SCAL_INTEGER), root->scalar.integer);
             break;
-        case AST_BOOLEAN:
-            fprintf(strm, "%s: %s\n", astk_scalar_to_str(AST_BOOLEAN), bool_to_str(root->scalar.boolean));
+        case SCAL_BOOLEAN:
+            fprintf(strm, "%s: %s\n", scalar_type_to_str(SCAL_BOOLEAN), bool_to_str(root->scalar.boolean));
             break;
         }
         break;
@@ -434,7 +434,7 @@ ast_print_texttree_r(struct ast_node *root,
         fprintf(strm, "%s: %s <%s>\n",
                 astk_kind_to_str(AST_DECLARATION),
                 root->decl.name,
-                astk_scalar_to_str(root->decl.type));
+                scalar_type_to_str(root->decl.type));
         if (root->decl.rhs) ast_print_texttree_r(root->decl.rhs, strm, prefix, plen + clen, 1);
         break;
     case AST_ASSIGNMENT:
@@ -476,10 +476,10 @@ ast_to_dot(struct ast_node * root,
     switch (root->type) {
     case AST_SCALAR:
         switch (root->scalar.type) {
-        case AST_INTEGER:
+        case SCAL_INTEGER:
             fprintf(strm, "  node%d [label=\"INTEGER: %d\"];\n", my_id, root->scalar.integer);
             break;
-        case AST_BOOLEAN:
+        case SCAL_BOOLEAN:
             fprintf(strm, "  node%d [label=\"BOOLEAN: %s\"];\n", my_id, bool_to_str(root->scalar.boolean));
             break;
         }
@@ -500,7 +500,7 @@ ast_to_dot(struct ast_node * root,
         fprintf(strm, "  node%d [label=\"DECLARATION: %s <%s>\"];\n",
                 my_id,
                 root->decl.name,
-                astk_scalar_to_str(root->decl.type));
+                scalar_type_to_str(root->decl.type));
         break;
     case AST_ASSIGNMENT:
         fprintf(strm, "  node%d [label=\"AST_ASSIGNMENT: %s\"];\n", my_id, root->asn.name);

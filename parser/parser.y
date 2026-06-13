@@ -4,6 +4,7 @@
 #include "../ast/ast.h"
 #include "../ast/ast_kind.h"
 #include "../darr/darr.h"
+#include "../types/scalars.h"
 }
 
 
@@ -156,10 +157,10 @@ block_body:
 ;
 
 decl:
-  TYPE_SPEC_INTEGER IDENT NEWLINE                { $$ = ast_ctr_decl(AST_INTEGER,  $2, NULL, NULL, ast_loc_span(@1,@2)); }
-| TYPE_SPEC_BOOLEAN IDENT NEWLINE                { $$ = ast_ctr_decl(AST_BOOLEAN, $2, NULL, NULL, ast_loc_span(@1,@2)); }
-| TYPE_SPEC_INTEGER IDENT ASSIGN expr NEWLINE    { $$ = ast_ctr_decl(AST_INTEGER,  $2, $4,   NULL, ast_loc_span(@1,@4)); }
-| TYPE_SPEC_BOOLEAN IDENT ASSIGN expr NEWLINE    { $$ = ast_ctr_decl(AST_BOOLEAN, $2, $4,   NULL, ast_loc_span(@1,@4)); }
+  TYPE_SPEC_INTEGER IDENT NEWLINE                { $$ = ast_ctr_decl(SCAL_INTEGER,  $2, NULL, NULL, ast_loc_span(@1,@2)); }
+| TYPE_SPEC_BOOLEAN IDENT NEWLINE                { $$ = ast_ctr_decl(SCAL_BOOLEAN, $2, NULL, NULL, ast_loc_span(@1,@2)); }
+| TYPE_SPEC_INTEGER IDENT ASSIGN expr NEWLINE    { $$ = ast_ctr_decl(SCAL_INTEGER,  $2, $4,   NULL, ast_loc_span(@1,@4)); }
+| TYPE_SPEC_BOOLEAN IDENT ASSIGN expr NEWLINE    { $$ = ast_ctr_decl(SCAL_BOOLEAN, $2, $4,   NULL, ast_loc_span(@1,@4)); }
 ;
 
 assign:

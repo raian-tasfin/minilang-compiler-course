@@ -10,27 +10,9 @@
  *****************************/
 enum seman_type {
     SEMAN_NULL,
-    SEMAN_BOOLEAN,
-    SEMAN_INTEGER,
+    SEMAN_BOOLEAN = SCAL_BOOLEAN,
+    SEMAN_INTEGER = SCAL_INTEGER,
 };
-
-enum seman_type
-seman_type_from_symtable(enum sym_scalar_type type)
-{
-    switch (type) {
-    case SYM_INTEGER: return SEMAN_INTEGER;
-    case SYM_BOOLEAN: return SEMAN_BOOLEAN;
-    }
-}
-
-static enum sym_scalar_type
-symtable_type_from_seman(enum seman_type type)
-{
-    switch (type) {
-    case SEMAN_INTEGER: return SYM_INTEGER;
-    case SEMAN_BOOLEAN: return SYM_BOOLEAN;
-    }
-}
 
 struct seman_report {
     enum seman_type type;
@@ -70,15 +52,6 @@ seman_report_null()
         .err = false,
         .type = SEMAN_NULL,
     };
-}
-
-enum seman_type
-seman_from_ast_scalar(enum ast_scalar_type type)
-{
-    switch (type) {
-    case AST_BOOLEAN: return SEMAN_BOOLEAN;
-    case AST_INTEGER: return SEMAN_INTEGER;
-    }
 }
 
 
@@ -125,7 +98,7 @@ seman_proc(struct ast_node * root,
     switch (root->type) {
     case AST_SCALAR:
         return (struct seman_report){
-            .type = seman_from_ast_scalar(root->scalar.type)
+            .type = root->scalar.type
         };
 
     case AST_BINOP: {
@@ -269,7 +242,7 @@ seman_proc(struct ast_node * root,
         if (!sym) return seman_print_unknown_identifier_error(root, sb);
         root->ident.sym = sym;
         return (struct seman_report){
-            .type = seman_type_from_symtable(sym_type(sym))
+            .type = sym_type(sym)
         };
     }
     case AST_ASSIGNMENT: {
@@ -280,7 +253,7 @@ seman_proc(struct ast_node * root,
         if (!sym) return seman_print_unknown_identifier_error(root, sb);
         root->asn.sym = sym;
 
-        if (seman_type_from_symtable(sym_type(sym)) != rhs.type)
+        if (sym_type(sym) != rhs.type)
             return seman_print_type_mismatch_error(root, "Type mismatch.", sb);
 
         return (struct seman_report) {
@@ -297,7 +270,7 @@ seman_proc(struct ast_node * root,
         if (sym) return seman_print_duplicate_declaration_error(root, sb);
 
         // get left type
-        enum seman_type left_type = seman_from_ast_scalar(root->decl.type);
+        enum seman_type left_type = root->decl.type;
 
         // type mismatch
         if (rhs.type != SEMAN_NULL && left_type != rhs.type)
@@ -306,7 +279,7 @@ seman_proc(struct ast_node * root,
         // install symbol
         sym = sym_new(current_scope,
                       root->decl.name,
-                      symtable_type_from_seman(left_type));
+                      left_type);
         root->decl.sym = sym;
         return (struct seman_report){ .type = left_type };
     }

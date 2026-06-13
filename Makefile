@@ -35,6 +35,15 @@ LEXER_H   = $(LEXER_DIR)/lex.yy.h
 LEXER_UTIL_H = $(LEXER_DIR)/lexer_util.h
 LEXER_UTIL_C = $(LEXER_DIR)/lexer_util.c
 
+
+#########
+# Types #
+#########
+TYPES_DIR = types
+SCALAR_H  = $(TYPES_DIR)/scalars.h
+SCALAR_C  = $(TYPES_DIR)/scalars.c
+
+
 ##########
 # Parser #
 ##########
@@ -126,6 +135,7 @@ SRCS_C += $(SEMAN_C)
 SRCS_C += $(IR_C)
 SRCS_C += $(CG_C)
 SRCS_C += $(SYM_C)
+SRCS_C += $(SCALAR_C)
 
 OBJS   = $(SRCS_C:%.c=%.o)
 
@@ -173,6 +183,7 @@ $(BOOLEAN_C): $(BOOLEAN_H)
 $(SEMAN_C): $(SEMAN_H)
 $(SRCBUF_C): $(SRCBUF_H)
 $(SYM_C): $(SYM_H)
+$(SCALAR_C): $(SCALAR_H)
 
 
 clean:

@@ -289,7 +289,7 @@ union vm_instr_view
 cg_generate_prnt_asn( struct cg_ctx * ctx, struct ir_stmt stmt)
 {
     uint16_t flags = 0;
-    if (stmt.print.val->type == IR_BOOLEAN) flags |= VM_PRNT_BOOLEAN;
+    if (stmt.print.val->type == SCAL_BOOLEAN) flags |= VM_PRNT_BOOLEAN;
 
     union vm_instr_view view = {
         .print = {
@@ -306,8 +306,8 @@ int
 cg_scalar_to_int(struct ir_scalar scalar)
 {
     switch (scalar.type) {
-    case IR_BOOLEAN: return scalar.boolean ? 1 : 0;
-    case IR_INTEGER: return scalar.integer;
+    case SCAL_BOOLEAN: return scalar.boolean ? 1 : 0;
+    case SCAL_INTEGER: return scalar.integer;
     }
 }
 

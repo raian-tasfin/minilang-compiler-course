@@ -91,12 +91,3 @@ astk_unop_to_str(enum ast_unop_type type)
     case AST_NOT: return "AST_NOT";
     }
 }
-
-char *
-astk_scalar_to_str(enum ast_scalar_type type)
-{
-    switch (type) {
-    case AST_BOOLEAN: return "AST_BOOLEAN";
-    case AST_INTEGER: return "AST_INTEGER";
-    }
-}

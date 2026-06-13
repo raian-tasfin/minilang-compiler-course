@@ -16,11 +16,6 @@ enum ast_kind {
 };
 
 
-enum ast_scalar_type {
-    AST_BOOLEAN,
-    AST_INTEGER,
-};
-
 /* Types of nodes that have no values */
 enum ast_punctuator_type {
     AST_ERR,
@@ -55,7 +50,6 @@ char * astk_kind_to_str(enum ast_kind kind);
 char * astk_punc_to_str(enum ast_punctuator_type type);
 char * astk_binop_to_str(enum ast_binop_type type);
 char * astk_unop_to_str(enum ast_unop_type type);
-char * astk_scalar_to_str(enum ast_scalar_type type);
 
 /* Alien enum to ast enum */
 enum ast_binop_type

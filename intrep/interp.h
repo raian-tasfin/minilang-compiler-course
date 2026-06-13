@@ -55,13 +55,8 @@ enum ir_unop {
 /**********
  * Scalar *
  **********/
-enum ir_scalar_type {
-    IR_INTEGER,
-    IR_BOOLEAN,
-};
-
 struct ir_scalar {
-    enum ir_scalar_type type;
+    enum scalar_type type;
     union {
         bool boolean;
         int  integer;

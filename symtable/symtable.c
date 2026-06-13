@@ -52,7 +52,7 @@ sym_scope_find(struct sym_scope * scope, char * name)
 }
 
 struct symbol *
-sym_new(struct sym_scope * scope, char * name, enum sym_scalar_type type)
+sym_new(struct sym_scope * scope, char * name, enum scalar_type type)
 {
     if (!scope) return NULL;
     struct symbol * sym = malloc(sizeof(struct symbol));
@@ -65,7 +65,7 @@ sym_new(struct sym_scope * scope, char * name, enum sym_scalar_type type)
     return sym;
 }
 
-enum sym_scalar_type
+enum scalar_type
 sym_type(struct symbol * sym)
 {
     return sym->type;
@@ -110,14 +110,4 @@ struct sym_scope *
 sym_scope_child(struct sym_scope * scope, int n)
 {
     return *(struct sym_scope**)darr_get(scope->children, n);
-}
-
-
-char *
-sym_scalar_type_to_str(enum sym_scalar_type type)
-{
-    switch (type) {
-    case SYM_INTEGER: return "integer";
-    case SYM_BOOLEAN: return "boolean";
-    };
 }

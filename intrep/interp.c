@@ -5,35 +5,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-enum ir_scalar_type
-ir_scalar_type_from_ast(enum ast_scalar_type type)
-{
-    switch (type) {
-    case AST_BOOLEAN: return IR_BOOLEAN;
-    case AST_INTEGER: return IR_INTEGER;
-    }
-}
-
-enum sym_scalar_type
-sym_scalar_type_from_ast(enum ast_scalar_type type)
-{
-    switch (type) {
-    case AST_BOOLEAN: return SYM_BOOLEAN;
-    case AST_INTEGER: return SYM_INTEGER;
-    }
-}
-
-
-enum sym_scalar_type
-sym_scalar_type_from_ir(enum ir_scalar_type type)
-{
-    switch (type) {
-    case IR_BOOLEAN: return SYM_BOOLEAN;
-    case IR_INTEGER: return SYM_INTEGER;
-    }
-}
-
-
 
 enum ir_binop
 ir_binop_from_ast(enum ast_binop_type op)
@@ -111,12 +82,12 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
         /* Create a const assignment */
 
         // create the scalar
-        enum ir_scalar_type type = ir_scalar_type_from_ast(node->scalar.type);
+        enum scalar_type type = node->scalar.type;
         struct ir_scalar scalar = { .type = type };
         // create the smbol
         struct symbol * dest = sym_new(scope,
                                        NULL,
-                                       sym_scalar_type_from_ast(node->scalar.type));
+                                       node->scalar.type);
 
         // tmp_i = scalar value
         struct ir_unit unit = {
@@ -136,14 +107,14 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
     }
     case AST_BINOP: {
         /* Destination type */
-        enum ir_scalar_type dest_type;
+        enum scalar_type dest_type;
         switch (node->binop.op) {
         case AST_ADD:
         case AST_SUB:
         case AST_MUL:
         case AST_DIV:
         case AST_MOD: {
-            dest_type = IR_INTEGER;
+            dest_type = SCAL_INTEGER;
             break;
         }
         case AST_LT:
@@ -155,11 +126,11 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
         case AST_AND:
         case AST_OR:
         case AST_XOR: {
-            dest_type = IR_BOOLEAN;
+            dest_type = SCAL_BOOLEAN;
             break;
         }
         }
-        struct symbol * dest = sym_new(scope, NULL, sym_scalar_type_from_ir(dest_type));
+        struct symbol * dest = sym_new(scope, NULL, dest_type);
         struct symbol * val1 = ir_prog_generate_rec(root_unit,
                                                     node->binop.left,
                                                     lineno,
@@ -187,12 +158,12 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
     }
     case AST_UNOP: {
         /* destination type */
-        enum ir_scalar_type dest_type;
+        enum scalar_type dest_type;
         switch (node->unop.op) {
-        case AST_NEG: dest_type = IR_INTEGER; break;
-        case AST_NOT: dest_type = IR_BOOLEAN; break;
+        case AST_NEG: dest_type = SCAL_INTEGER; break;
+        case AST_NOT: dest_type = SCAL_BOOLEAN; break;
         }
-        struct symbol * dest = sym_new(scope, NULL, sym_scalar_type_from_ir(dest_type));
+        struct symbol * dest = sym_new(scope, NULL, dest_type);
         struct symbol * val = ir_prog_generate_rec(root_unit,
                                                    node->unop.child,
                                                    lineno,
@@ -300,16 +271,16 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
                     .type = IR_CONST_ASSIGNMENT,
                     .lineno = ++(*lineno),
                     .const_asn = {
-                        .dest = sym_new(scope, NULL, sym_scalar_type_from_ast(node->decl.type)),
+                        .dest = sym_new(scope, NULL, node->decl.type),
                         .scalar = {
-                            .type = ir_scalar_type_from_ast(node->decl.type),
+                            .type = node->decl.type,
                         }
                     }
                 }
             };
             switch (node->decl.type) {
-            case AST_BOOLEAN: unit.stmt.const_asn.scalar.boolean = false; break;
-            case AST_INTEGER: unit.stmt.const_asn.scalar.integer = 0; break;
+            case SCAL_BOOLEAN: unit.stmt.const_asn.scalar.boolean = false; break;
+            case SCAL_INTEGER: unit.stmt.const_asn.scalar.integer = 0; break;
             }
             darr_push_back(root_unit->block, &unit);
         } else {
@@ -406,11 +377,11 @@ void
 ir_scalar_to_str(struct ir_scalar scalar, char * dest)
 {
     switch (scalar.type) {
-    case IR_INTEGER: {
+    case SCAL_INTEGER: {
         sprintf(dest, "%5d", scalar.integer);
         return;
     }
-    case IR_BOOLEAN: {
+    case SCAL_BOOLEAN: {
         sprintf(dest, "%5s", bool_to_str(scalar.boolean));
         return;
     }
@@ -491,7 +462,7 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
         char dest_name[65];
         char type[65];
         ir_sym_to_str(unit->stmt.decl.sym, dest_name);
-        sprintf(type, "%s", sym_scalar_type_to_str(unit->stmt.decl.sym->type));
+        sprintf(type, "%s", scalar_type_to_str(unit->stmt.decl.sym->type));
         ir_fprintf(ctx,
                    "%7s   %7s     <%7s>\n",
                    "decl",

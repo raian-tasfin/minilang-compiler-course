@@ -39,7 +39,7 @@ struct ast_src_loc {
 
 
 struct ast_scalar_node {
-    enum ast_scalar_type type;
+    enum scalar_type type;
     union {
         int integer;
         bool boolean;
@@ -76,7 +76,7 @@ struct ast_block_node {
 struct ast_decl_node {
     char * name;
     struct symbol * sym;
-    enum ast_scalar_type type;
+    enum scalar_type type;
     struct ast_node * rhs;
 };
 
@@ -156,7 +156,7 @@ ast_ctr_ident(char * name,
               struct ast_src_loc loc);
 
 struct ast_node *
-ast_ctr_decl(enum ast_scalar_type type,
+ast_ctr_decl(enum scalar_type type,
              char * name,
              struct ast_node * expr,
              struct ast_node * current_block,
