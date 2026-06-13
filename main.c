@@ -9,6 +9,7 @@
 #include "cg/cg.h"
 #include "darr/darr.h"
 #include "seman/seman.h"
+#include "symtable/symtable.h"
 
 
 int main(int argc, char * const * argv)
@@ -24,7 +25,7 @@ int main(int argc, char * const * argv)
     struct src_buffer sb = {0};
     int exit_status = EXIT_SUCCESS;
     FILE * cg_out = NULL;
-
+    struct sym_scope * scope = NULL;
 
     /*********************
      * CLI Options Setup *
@@ -89,17 +90,17 @@ int main(int argc, char * const * argv)
     /*********************
      * Semantic Analysis *
      *********************/
-    struct sym_scope * scope = sym_scope_new(NULL);
+    scope = sym_scope_new(NULL);
     if (!seman(ast_root, &sb, scope)) {
         exit_status = EXIT_FAILURE;
         goto destruct;
     }
 
 
-   /* /\******************************* */
-   /*  * Intermediate Representation * */
-   /*  *******************************\/ */
-   /*  struct ir_unit * ir_program = ir_prog_generate(ast_root) ; */
+   /*******************************
+    * Intermediate Representation *
+    *******************************/
+    /* struct ir_unit * ir_program = ir_prog_generate(ast_root) ; */
 
    /*  /\**************** */
    /*   * IR Reporting * */
@@ -152,6 +153,7 @@ int main(int argc, char * const * argv)
     if (ast_ctx.dot) fclose(ast_ctx.dot);
     if (ast_ctx.text) fclose(ast_ctx.text);
     if (ir_ctx.rprt && ir_ctx.rprt != stdout) fclose(ir_ctx.rprt);
+    sym_scope_delete(scope);
     cg_ctx_destroy(&cg_ctx);
     darr_destroy(&program);
     if (cg_out) fclose(cg_out);

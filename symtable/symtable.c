@@ -5,7 +5,8 @@
 
 struct sym_scope {
     struct sym_scope * parent;
-    struct darr * arr; // array of struct symbols
+    struct darr * children; // array of sym_scopes
+    struct darr * arr;      // array of struct symbols
     int * id;
 };
 
@@ -17,8 +18,10 @@ sym_scope_new(struct sym_scope * parent_scope)
     *new = (struct sym_scope) {
         .parent = parent_scope,
         .arr = darr_init(sizeof(struct symbol)),
-        .id = parent_scope ? parent_scope->id : malloc(sizeof(int))
+        .id = parent_scope ? parent_scope->id : malloc(sizeof(int)),
+        .children = darr_init(sizeof(struct sym_scope)),
     };
+    if (parent_scope) darr_push_back(parent_scope->children, new);
     return new;
 }
 
@@ -65,4 +68,39 @@ enum sym_scalar_type
 sym_type(struct symbol * sym)
 {
     return sym->type;
+}
+
+// meant to be called by scope delete only
+static void
+sym_delete(struct symbol * sym)
+{
+    if (!sym) return;
+    free(sym->name);
+}
+
+
+void
+sym_scope_delete(struct sym_scope * scope)
+{
+    /* struct sym_scope * parent; */
+    // skip. we are passing down recursion
+
+    /* struct darr * children; // array of sym_scopes */
+    int n = darr_size(scope->children);
+    for (int i = 0; i < n; i++) {
+        struct sym_scope * child = darr_get(scope->children, i);
+        sym_scope_delete(child);
+    }
+    darr_destroy(&scope->children);
+
+    /* struct darr * arr;      // array of struct symbols */
+    n = darr_size(scope->arr);
+    for (int i = 0; i < n; i++) {
+        struct symbol * sym = darr_get(scope->arr, i);
+        sym_delete(sym);
+    }
+    darr_destroy(&scope->arr);
+
+    /* int * id; */
+    free(scope->id);
 }
