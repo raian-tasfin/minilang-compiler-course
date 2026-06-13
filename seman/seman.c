@@ -256,6 +256,7 @@ seman_proc(struct ast_node * root,
     }
     case AST_BLOCK: {
         struct sym_scope * scope = sym_scope_new(current_scope);
+        root->block.scope = scope;
         int cnt_statements = darr_size(root->block.statements);
         for (int i = 0; i < cnt_statements; i++) {
             struct ast_node ** stmt = darr_get(root->block.statements, i);

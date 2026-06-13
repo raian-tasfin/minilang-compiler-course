@@ -14,6 +14,27 @@ ir_scalar_type_from_ast(enum ast_scalar_type type)
     }
 }
 
+enum sym_scalar_type
+sym_scalar_type_from_ast(enum ast_scalar_type type)
+{
+    switch (type) {
+    case AST_BOOLEAN: return SYM_BOOLEAN;
+    case AST_INTEGER: return SYM_INTEGER;
+    }
+}
+
+
+enum sym_scalar_type
+sym_scalar_type_from_ir(enum ir_scalar_type type)
+{
+    switch (type) {
+    case IR_BOOLEAN: return SYM_BOOLEAN;
+    case IR_INTEGER: return SYM_INTEGER;
+    }
+}
+
+
+
 enum ir_binop
 ir_binop_from_ast(enum ast_binop_type op)
 {
@@ -76,31 +97,14 @@ ir_unopch(enum ir_unop op)
 }
 
 
-
-struct ir_sym *
-ir_sym_new(char * name, enum ir_scalar_type type, int * var_id)
-{
-    struct ir_sym * new = malloc(sizeof(struct ir_sym));
-    new[0] = (struct ir_sym){
-        .id = var_id[0]++,
-        .type = type
-    };
-    if (name) {
-        strncpy(new->src_name, name, 63);
-        new->src_var = true;
-    }
-    return new;
-}
-
-
 /****************
  * IR Generator *
  ****************/
-static struct ir_sym *
+static struct symbol *
 ir_prog_generate_rec(struct ir_unit * root_unit,
                      struct ast_node * node,
-                     int * var_id,
-                     int * lineno)
+                     int * lineno,
+                     struct sym_scope * scope)
 {
     switch (node->type) {
     case AST_SCALAR: {
@@ -109,11 +113,10 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
         // create the scalar
         enum ir_scalar_type type = ir_scalar_type_from_ast(node->scalar.type);
         struct ir_scalar scalar = { .type = type };
-        if (type == IR_INTEGER) scalar.integer = node->scalar.integer;
-        else scalar.boolean = node->scalar.boolean;
-
         // create the smbol
-        struct ir_sym * dest = ir_sym_new(NULL, type, var_id);
+        struct symbol * dest = sym_new(scope,
+                                       NULL,
+                                       sym_scalar_type_from_ast(node->scalar.type));
 
         // tmp_i = scalar value
         struct ir_unit unit = {
@@ -156,10 +159,15 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
             break;
         }
         }
-        struct ir_sym * dest = ir_sym_new(NULL, dest_type, var_id);
-        struct ir_sym * val1 = ir_prog_generate_rec(root_unit, node->binop.left, var_id, lineno);
-        struct ir_sym * val2 = ir_prog_generate_rec(root_unit, node->binop.right, var_id, lineno);
-
+        struct symbol * dest = sym_new(scope, NULL, sym_scalar_type_from_ir(dest_type));
+        struct symbol * val1 = ir_prog_generate_rec(root_unit,
+                                                    node->binop.left,
+                                                    lineno,
+                                                    scope);
+        struct symbol * val2 = ir_prog_generate_rec(root_unit,
+                                                    node->binop.right,
+                                                    lineno,
+                                                    scope);
         struct ir_unit unit = {
             .type = IR_STMT,
             .stmt = {
@@ -184,9 +192,11 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
         case AST_NEG: dest_type = IR_INTEGER; break;
         case AST_NOT: dest_type = IR_BOOLEAN; break;
         }
-        struct ir_sym * dest = ir_sym_new(NULL, dest_type, var_id);
-        struct ir_sym * val = ir_prog_generate_rec(root_unit, node->unop.child, var_id, lineno);
-
+        struct symbol * dest = sym_new(scope, NULL, sym_scalar_type_from_ir(dest_type));
+        struct symbol * val = ir_prog_generate_rec(root_unit,
+                                                   node->unop.child,
+                                                   lineno,
+                                                   scope);
         struct ir_unit unit = {
             .type = IR_STMT,
             .stmt = {
@@ -199,12 +209,14 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
                 }
             },
         };
-
         darr_push_back(root_unit->block, &unit);
         return dest;
     }
     case AST_PRNT: {
-        struct ir_sym * val = ir_prog_generate_rec(root_unit, node->print.child, var_id, lineno);
+        struct symbol * val = ir_prog_generate_rec(root_unit,
+                                                   node->print.child,
+                                                   lineno,
+                                                   scope);
         struct ir_unit unit = {
             .type = IR_STMT,
             .stmt = {
@@ -224,10 +236,15 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
             .type = IR_BLOCK,
             .block = darr_init(sizeof(struct ir_unit)),
         };
+        // attach scope to block node
+        struct sym_scope * block_scope = node->block.scope;
         int n = darr_size(node->block.statements);
         for (int i = 0; i < n; i++) {
             struct ast_node ** subnode = darr_get(node->block.statements, i);
-            ir_prog_generate_rec(&block, *subnode, var_id, lineno);
+            ir_prog_generate_rec(&block,
+                                 *subnode,
+                                 lineno,
+                                 block_scope);
         }
 
         // now we push that block to the program
@@ -237,15 +254,97 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
     case AST_PUNCTUATOR: {
         return NULL;
     }
+    case AST_ASSIGNMENT: {
+        // rhs
+        struct symbol * rhs = ir_prog_generate_rec(root_unit,
+                                                   node->asn.rhs,
+                                                   lineno,
+                                                   scope);
+        // statement
+        struct ir_unit unit = {
+            .type = IR_STMT,
+            .stmt = {
+                .type = IR_VAR_ASSIGNMENT,
+                .lineno = ++(*lineno),
+                .var_asn = {
+                    .dest = node->asn.sym,
+                    .val = rhs,
+                }
+            }
+        };
+        darr_push_back(root_unit->block, &unit);
+        return node->asn.sym;
     };
+    case AST_DECLARATION: {
+        /* Push declaration */
+        struct ir_unit unit = {
+            .type = IR_STMT,
+            .stmt = {
+                .type = IR_VAR_DECL,
+                .lineno = ++(*lineno),
+                .decl = {
+                    .sym = node->decl.sym
+                }
+            }
+        };
+        darr_push_back(root_unit->block, &unit);
+
+        /* Push assignment
+         * const assignment of default value if none provided
+         * var assignment otherwise
+         */
+        if (!node->decl.rhs) {
+            struct ir_unit unit = {
+                .type = IR_STMT,
+                .stmt = {
+                    .type = IR_CONST_ASSIGNMENT,
+                    .lineno = ++(*lineno),
+                    .const_asn = {
+                        .dest = sym_new(scope, NULL, sym_scalar_type_from_ast(node->decl.type)),
+                        .scalar = {
+                            .type = ir_scalar_type_from_ast(node->decl.type),
+                        }
+                    }
+                }
+            };
+            switch (node->decl.type) {
+            case AST_BOOLEAN: unit.stmt.const_asn.scalar.boolean = false; break;
+            case AST_INTEGER: unit.stmt.const_asn.scalar.integer = 0; break;
+            }
+            darr_push_back(root_unit->block, &unit);
+        } else {
+            struct symbol * rhs =
+                ir_prog_generate_rec(root_unit,
+                                     node->decl.rhs,
+                                     lineno,
+                                     scope);
+            struct ir_unit unit = {
+                .type = IR_STMT,
+                .stmt = {
+                    .type = IR_VAR_ASSIGNMENT,
+                    .lineno = ++(*lineno),
+                    .var_asn = {
+                        .dest = node->decl.sym,
+                        .val = rhs,
+                    }
+                }
+            };
+            darr_push_back(root_unit->block, &unit);
+        }
+
+        return node->decl.sym;
+    }
+    case AST_IDENT: {
+        return node->ident.sym;
+    }
+    }
 }
 
 
 struct ir_unit *
-ir_prog_generate(struct ast_node * root)
+ir_prog_generate(struct ast_node * root, struct sym_scope * scope)
 {
     if (!root) return NULL;
-    int var_id = 0;
     int lineno = 0;
 
     struct ir_unit * root_unit = malloc(sizeof(struct ir_unit));
@@ -253,7 +352,7 @@ ir_prog_generate(struct ast_node * root)
         .type = IR_BLOCK,
         .block = darr_init(sizeof(struct ir_unit)),
     };
-    ir_prog_generate_rec(root_unit, root, &var_id, &lineno);
+    ir_prog_generate_rec(root_unit, root, &lineno, scope);
     return root_unit;
 }
 
@@ -293,10 +392,10 @@ ir_ctx_init(struct cli_opts * cliopts)
 
 
 void
-ir_sym_to_str(struct ir_sym * sym, char * dest)
+ir_sym_to_str(struct symbol * sym, char * dest)
 {
-    if (sym->src_var) {
-        sprintf(dest, "%s", sym->src_name);
+    if (sym->name) {
+        sprintf(dest, "%s", sym->name);
         return;
     }
     sprintf(dest, "tmp_%d", sym->id);
@@ -375,6 +474,29 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
         char val_str[65];
         ir_sym_to_str(unit->stmt.print.val, val_str);
         ir_fprintf(ctx, "%7s   %7s\n", "print", val_str);
+        return;
+    }
+    case IR_VAR_ASSIGNMENT: {
+        char dest_name[65];
+        char val[65];
+        ir_sym_to_str(unit->stmt.var_asn.dest, dest_name);
+        ir_sym_to_str(unit->stmt.var_asn.val, val);
+        ir_fprintf(ctx,
+                   "%7s = %7s\n",
+                   dest_name,
+                   val);
+        return;
+    }
+    case IR_VAR_DECL: {
+        char dest_name[65];
+        char type[65];
+        ir_sym_to_str(unit->stmt.decl.sym, dest_name);
+        sprintf(type, "%s", sym_scalar_type_to_str(unit->stmt.decl.sym->type));
+        ir_fprintf(ctx,
+                   "%7s   %7s     <%7s>\n",
+                   "decl",
+                   dest_name,
+                   type);
         return;
     }
     }

@@ -1,5 +1,7 @@
+#include <inttypes.h>
 #include <stddef.h>
 #include "../ast/ast.h"
+#include "../symtable/symtable.h"
 
 #ifndef INTERP_H
 #define INTERP_H 1
@@ -14,6 +16,8 @@ enum ir_stmt_type {
     IR_CONST_ASSIGNMENT,
     IR_BINOP_ASSIGNMENT,
     IR_UNOP_ASSIGNMENT,
+    IR_VAR_ASSIGNMENT,
+    IR_VAR_DECL,
     IR_PRINT,
 };
 
@@ -65,40 +69,38 @@ struct ir_scalar {
 };
 
 
-/**********
- * Symbol *
- **********/
-struct ir_sym {
-    enum ir_scalar_type type;
-    char src_name[64];
-    bool src_var;
-    int  id;
-};
-
-
 /**************
  * Statements *
  **************/
 struct ir_stmt_const_asn {
-    struct ir_sym *  dest;
+    struct symbol *  dest;
     struct ir_scalar scalar;
 };
 
 struct ir_stmt_binop_asn {
     enum ir_binop op;
-    struct ir_sym * dest;
-    struct ir_sym * val1;
-    struct ir_sym * val2;
+    struct symbol * dest;
+    struct symbol * val1;
+    struct symbol * val2;
 };
 
 struct ir_stmt_unop_asn {
     enum ir_unop op;
-    struct ir_sym * dest;
-    struct ir_sym * val;
+    struct symbol * dest;
+    struct symbol * val;
+};
+
+struct ir_stmt_var_asn {
+    struct symbol * dest;
+    struct symbol * val;
 };
 
 struct ir_stmt_print {
-    struct ir_sym * val;
+    struct symbol * val;
+};
+
+struct ir_var_decl {
+    struct symbol * sym;
 };
 
 struct ir_stmt {
@@ -108,7 +110,9 @@ struct ir_stmt {
         struct ir_stmt_const_asn const_asn;
         struct ir_stmt_binop_asn binop_asn;
         struct ir_stmt_unop_asn  unop_asn;
+        struct ir_stmt_var_asn   var_asn;
         struct ir_stmt_print     print;
+        struct ir_var_decl       decl;
     };
 };
 
@@ -128,7 +132,7 @@ struct ir_unit {
  * An IR program is an array of units.
  */
 struct ir_unit * // array of units
-ir_prog_generate(struct ast_node * root);
+ir_prog_generate(struct ast_node * root, struct sym_scope * scope);
 
 
 

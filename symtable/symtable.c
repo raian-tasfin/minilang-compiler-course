@@ -5,8 +5,8 @@
 
 struct sym_scope {
     struct sym_scope * parent;
-    struct darr * children; // array of sym_scopes
-    struct darr * arr;      // array of struct symbols
+    struct darr * children; // array of sym_scope *
+    struct darr * arr;      // array of struct symbol *
     int * id;
 };
 
@@ -17,11 +17,12 @@ sym_scope_new(struct sym_scope * parent_scope)
     struct sym_scope *  new = malloc(sizeof(struct sym_scope));
     *new = (struct sym_scope) {
         .parent = parent_scope,
-        .arr = darr_init(sizeof(struct symbol)),
+        .arr = darr_init(sizeof(struct symbol *)),
         .id = parent_scope ? parent_scope->id : malloc(sizeof(int)),
-        .children = darr_init(sizeof(struct sym_scope)),
+        .children = darr_init(sizeof(struct sym_scope *)),
     };
-    if (parent_scope) darr_push_back(parent_scope->children, new);
+    if (!parent_scope) *(new->id) = 0;
+    if (parent_scope) darr_push_back(parent_scope->children, &new);
     return new;
 }
 
@@ -32,8 +33,8 @@ sym_scope_find_local(struct sym_scope * scope, char * name)
     if (!scope || !name) return NULL;
     int n = darr_size(scope->arr);
     for (int i = 0; i < n; i++) {
-        struct symbol * sym = darr_get(scope->arr, i);
-        if (strcmp(sym->name, name) == 0) return sym;
+        struct symbol ** sym = darr_get(scope->arr, i);
+        if (strcmp(sym[0]->name, name) == 0) return *sym;
     }
     return NULL;
 }
@@ -53,14 +54,14 @@ sym_scope_find(struct sym_scope * scope, char * name)
 struct symbol *
 sym_new(struct sym_scope * scope, char * name, enum sym_scalar_type type)
 {
-    if (!scope || !name) return NULL;
+    if (!scope) return NULL;
     struct symbol * sym = malloc(sizeof(struct symbol));
     *sym = (struct symbol) {
         .id = (*scope->id)++,
-        .name = name,
+        .name = name ? strdup(name) : NULL,
         .type = type,
     };
-    darr_push_back(scope->arr, sym);
+    darr_push_back(scope->arr, &sym);
     return sym;
 }
 
@@ -88,19 +89,35 @@ sym_scope_delete(struct sym_scope * scope)
     /* struct darr * children; // array of sym_scopes */
     int n = darr_size(scope->children);
     for (int i = 0; i < n; i++) {
-        struct sym_scope * child = darr_get(scope->children, i);
-        sym_scope_delete(child);
+        struct sym_scope ** child = darr_get(scope->children, i);
+        sym_scope_delete(*child);
     }
     darr_destroy(&scope->children);
 
     /* struct darr * arr;      // array of struct symbols */
     n = darr_size(scope->arr);
     for (int i = 0; i < n; i++) {
-        struct symbol * sym = darr_get(scope->arr, i);
-        sym_delete(sym);
+        struct symbol ** sym = darr_get(scope->arr, i);
+        sym_delete(*sym);
     }
     darr_destroy(&scope->arr);
 
     /* int * id; */
     free(scope->id);
+}
+
+struct sym_scope *
+sym_scope_child(struct sym_scope * scope, int n)
+{
+    return *(struct sym_scope**)darr_get(scope->children, n);
+}
+
+
+char *
+sym_scalar_type_to_str(enum sym_scalar_type type)
+{
+    switch (type) {
+    case SYM_INTEGER: return "integer";
+    case SYM_BOOLEAN: return "boolean";
+    };
 }
