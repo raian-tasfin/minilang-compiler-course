@@ -48,13 +48,15 @@ struct vm_instruction {
 };
 
 /* Move Instruction */
-enum vm_mov_flag : uint16_t {
-    VM_MOV_CONST_TO_REG = 1
+enum vm_mov_flag : uint8_t {
+    VM_MOV_CONST_TO_REG = 1,
+    VM_MOV_REG_TO_REG   = 2,
 };
 struct vm_mov_instruction {
     enum vm_op op: 8;
     uint8_t dest: 8;
-    enum vm_mov_flag flag : 16;
+    uint8_t src: 8;
+    enum vm_mov_flag flag : 8;
 };
 
 /* Load Instruction */

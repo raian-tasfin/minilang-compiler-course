@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "../darr/darr.h"
 #include "../boolean/boolean.h"
+#include <stdint.h>
 #include <stdio.h>
 
 
@@ -44,11 +45,13 @@ vm_exec_mov(struct vm * vm, union vm_instr_view view)
     if (!vmcr_ensure_vm(vm)) return false;
     if (!vmcr_ensure_op_dispatch(view, VM_MOV)) return false;
 
-    /* Ensure move flag */
-    if (!(view.mov.flag & VM_MOV_CONST_TO_REG)) {
-        vmcr_err("%s", "Only 'MOV REG CONST' is implemented.");
-        return false;
+    /* Register to register */
+    if (view.mov.flag & VM_MOV_REG_TO_REG) {
+        vm->state.r[view.mov.dest] = vm->state.r[view.mov.src];
+        return true;
     }
+
+    /* const to register */
     int32_t val = (*(union vm_instr_view*)darr_get(vm->state.program, vm->state.ip++)).raw;
     vm->state.r[view.mov.dest] = val;
     return true;

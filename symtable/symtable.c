@@ -103,7 +103,7 @@ sym_scope_delete(struct sym_scope * scope)
     darr_destroy(&scope->arr);
 
     /* int * id; */
-    free(scope->id);
+    if (!scope->parent) free(scope->id);
 }
 
 struct sym_scope *

@@ -2,6 +2,7 @@
 #include "../darr/darr.h"
 #include "../boolean/boolean.h"
 #include "../op/opstr.h"
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -84,6 +85,11 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
         // create the scalar
         enum scalar_type type = node->scalar.type;
         struct ir_scalar scalar = { .type = type };
+        switch (type) {
+        case SCAL_INTEGER: scalar.integer = node->scalar.integer; break;
+        case SCAL_BOOLEAN: scalar.boolean = node->scalar.boolean; break;
+        }
+
         // create the smbol
         struct symbol * dest = sym_new(scope,
                                        NULL,

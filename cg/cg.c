@@ -28,6 +28,7 @@ bool cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct dar
 int  cg_alloc_register_sym(struct cg_ctx * ctx, int symid, int lineno);
 
 union vm_instr_view cg_generate_const_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
+union vm_instr_view cg_generate_var_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
 union vm_instr_view cg_generate_binop_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
 union vm_instr_view cg_generate_unop_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
 union vm_instr_view cg_generate_prnt_asn( struct cg_ctx * ctx, struct ir_stmt stmt);
@@ -54,6 +55,7 @@ cg_ctx_init(struct ir_unit * root_unit)
     if (!(ctx = malloc(sizeof(struct cg_ctx)))) goto error;
 
     // get last use
+    ctx->last_use = darr_init(sizeof(int));
     if (!(ctx->last_use = cg_get_last_use(root_unit))) goto error;
 
     // allocate reg_of_sym
@@ -155,6 +157,11 @@ cg_get_last_use_rec(struct darr * luse, struct ir_unit * unit)
     case IR_PRINT:
         if (!(cg_update_last_use(luse, unit->stmt.print.val->id, unit->stmt.lineno, none))) return false;
         return true;
+    case IR_VAR_ASSIGNMENT: {
+        if (!(cg_update_last_use(luse, unit->stmt.var_asn.val->id, unit->stmt.lineno, none))) return false;
+        return true;
+    }
+    case IR_VAR_DECL: /* no read */ return true;
     }
 }
 
@@ -208,7 +215,22 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
         if (!darr_push_back(program, &view)) return false;
         return true;
     }
+    case IR_VAR_ASSIGNMENT: {
+        union vm_instr_view instr_view = cg_generate_var_asn(ctx, unit->stmt);
+        if (!darr_push_back(program, &instr_view)) return false;
+        return true;
     }
+    case IR_VAR_DECL: {
+        /* Skip for now.
+         * For now we are allocating one register per symbol. Since we
+         * don't have arrays, we are unlikely to require additional
+         * memory at all. But in case we do, this statement will have
+         * to assign memory offset to the symbol.
+         */
+        return true;
+    }
+    }
+    return false;
 }
 
 
@@ -253,6 +275,20 @@ cg_generate_const_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
             .dest = cg_alloc_register_sym(ctx, stmt.const_asn.dest->id, stmt.lineno),
             .flag = VM_MOV_CONST_TO_REG,
             .op   = VM_MOV,
+        }
+    };
+    return view;
+}
+
+union vm_instr_view
+cg_generate_var_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
+{
+    union vm_instr_view view = {
+        .mov = {
+            .dest = cg_alloc_register_sym(ctx, stmt.var_asn.dest->id, stmt.lineno),
+            .src  = cg_alloc_register_sym(ctx, stmt.var_asn.val->id, stmt.lineno),
+            .op   = VM_MOV,
+            .flag = VM_MOV_REG_TO_REG,
         }
     };
     return view;

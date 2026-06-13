@@ -22,13 +22,17 @@ vmdasm_dasm(struct darr * program, FILE * outstream)
         switch (view->base.op) {
             /* Move op */
         case VM_MOV: {
-            int dest = view->mov.dest;
-            i++;
-
-            union vm_instr_view * const_view = darr_get(program, i);
-            int val = const_view->raw;
-
-            fprintf(outstream, "\tr%d\t%d", dest, val);
+            if (view->mov.flag & VM_MOV_CONST_TO_REG) {
+                int dest = view->mov.dest;
+                i++;
+                union vm_instr_view * const_view = darr_get(program, i);
+                int val = const_view->raw;
+                fprintf(outstream, "\tr%d\t%d", dest, val);
+            } else {
+                int dest = view->mov.dest;
+                int src = view->mov.src;
+                fprintf(outstream, "\tr%d\tr%d", dest, src);
+            }
             break;
         }
             /* Binary ops */

@@ -13,7 +13,7 @@
  * Context *
  ***********/
 #define VM_REGISTER_CNT 256
-#define VM_MEMORY_LIM   0x10000000
+#define VM_MEMORY_LIM   0x10000
 
 struct vm {
     /* Context to run */
