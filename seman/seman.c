@@ -1,6 +1,8 @@
 #include "seman.h"
+#include "../symtable/symtable.h"
 #include "../darr/darr.h"
 #include <stdio.h>
+#include <stdbool.h>
 
 
 /*****************************
@@ -8,11 +10,67 @@
  *****************************/
 enum seman_type {
     SEMAN_NULL,
-    SEMAN_ERR,
     SEMAN_BOOLEAN,
     SEMAN_INTEGER,
 };
 
+enum seman_type
+seman_type_from_symtable(enum sym_scalar_type type)
+{
+    switch (type) {
+    case SYM_INTEGER: return SEMAN_INTEGER;
+    case SYM_BOOLEAN: return SEMAN_BOOLEAN;
+    }
+}
+
+static enum sym_scalar_type
+symtable_type_from_seman(enum seman_type type)
+{
+    switch (type) {
+    case SEMAN_INTEGER: return SYM_INTEGER;
+    case SEMAN_BOOLEAN: return SYM_BOOLEAN;
+    }
+}
+
+struct seman_report {
+    enum seman_type type;
+    bool err;
+};
+
+static struct seman_report
+seman_report_err()
+{
+    return (struct seman_report) {
+        .err = true
+    };
+}
+
+static struct seman_report
+seman_report_integer()
+{
+    return (struct seman_report) {
+        .err = false,
+        .type = SEMAN_INTEGER
+    };
+}
+
+static struct seman_report
+seman_report_booelan()
+{
+    return (struct seman_report) {
+        .err = false,
+        .type = SEMAN_BOOLEAN,
+    };
+}
+
+static struct seman_report
+seman_report_null()
+{
+    return (struct seman_report) {
+        .err = false,
+        .type = SEMAN_NULL,
+    };
+}
 
 enum seman_type
 seman_from_ast_scalar(enum ast_scalar_type type)
@@ -20,7 +78,6 @@ seman_from_ast_scalar(enum ast_scalar_type type)
     switch (type) {
     case AST_BOOLEAN: return SEMAN_BOOLEAN;
     case AST_INTEGER: return SEMAN_INTEGER;
-    default: return SEMAN_ERR;
     }
 }
 
@@ -28,8 +85,8 @@ seman_from_ast_scalar(enum ast_scalar_type type)
 /*********************
  * Private Utilities *
  *********************/
-static enum seman_type
-seman_print_error(struct ast_node * root,
+static struct seman_report
+seman_print_type_mismatch_error(struct ast_node * root,
                   char * expectation,
                   struct src_buffer * sb)
 {
@@ -37,17 +94,39 @@ seman_print_error(struct ast_node * root,
             expectation,
             AST_SRC_LOC_EXP(root->loc));
     src_buf_print_loc(sb, root->loc);
-    return SEMAN_ERR;
+    return seman_report_err();
 }
 
-
-enum seman_type
-seman_type_check_proc(struct ast_node * root, struct src_buffer * sb)
+static struct seman_report
+seman_print_unknown_identifier_error(struct ast_node * root,
+                                     struct src_buffer * sb)
 {
-    if (!root) return SEMAN_NULL;
+    fprintf(stderr, "Unknown variable.\n");
+    src_buf_print_loc(sb, root->loc);
+    return seman_report_err();
+}
+
+static struct seman_report
+seman_print_duplicate_declaration_error(struct ast_node * root,
+                                        struct src_buffer * sb)
+{
+    fprintf(stderr, "Variable previously declared.\n");
+    src_buf_print_loc(sb, root->loc);
+    return seman_report_err();
+}
+
+struct seman_report
+seman_proc(struct ast_node * root,
+           struct src_buffer * sb,
+           struct sym_scope * current_scope,
+           int * id)
+{
+    if (!root) return (struct seman_report){ .type = SEMAN_NULL };
     switch (root->type) {
     case AST_SCALAR:
-        return seman_from_ast_scalar(root->scalar.type);
+        return (struct seman_report){
+            .type = seman_from_ast_scalar(root->scalar.type)
+        };
 
     case AST_BINOP: {
         switch (root->binop.op) {
@@ -56,24 +135,48 @@ seman_type_check_proc(struct ast_node * root, struct src_buffer * sb)
         case AST_MUL:
         case AST_DIV:
         case AST_MOD: {
-            enum seman_type left = seman_type_check_proc(root->binop.left, sb);
-            enum seman_type right = seman_type_check_proc(root->binop.right, sb);
-            if (left == SEMAN_ERR || right == SEMAN_ERR) return SEMAN_ERR;
-            if (left != SEMAN_INTEGER) return seman_print_error(root->binop.left, "Expected integer", sb);
-            if (right != SEMAN_INTEGER) return seman_print_error(root->binop.right, "Expected integer", sb);
-            return SEMAN_INTEGER;
+            struct seman_report left = seman_proc(root->binop.left,
+                                                  sb,
+                                                  current_scope,
+                                                  id);
+            struct seman_report right = seman_proc(root->binop.right,
+                                                   sb,
+                                                   current_scope,
+                                                   id);
+            if (left.err || right.err) return seman_report_err();
+            if (left.type != SEMAN_INTEGER)
+                return seman_print_type_mismatch_error(root->binop.left,
+                                                       "Expected integer",
+                                                       sb);
+            if (right.type != SEMAN_INTEGER)
+                return seman_print_type_mismatch_error(root->binop.right,
+                                                       "Expected integer",
+                                                       sb);
+            return seman_report_integer();
         }
         case AST_AND:
         case AST_OR:
         case AST_XOR: {
-            enum seman_type left = seman_type_check_proc(root->binop.left, sb);
-            enum seman_type right = seman_type_check_proc(root->binop.right, sb);
-            if (left == SEMAN_ERR || right == SEMAN_ERR) return SEMAN_ERR;
-            if (left != SEMAN_BOOLEAN)
-                return seman_print_error(root->binop.left, "Expected boolean", sb);
-            if (right != SEMAN_BOOLEAN)
-                return seman_print_error(root->binop.right, "Expected boolean", sb);
-            return SEMAN_BOOLEAN;
+            struct seman_report left = seman_proc(root->binop.left,
+                                                  sb,
+                                                  current_scope,
+                                                  id);
+            struct seman_report right = seman_proc(root->binop.right,
+                                                   sb,
+                                                   current_scope,
+                                                   id);
+            if (left.err || right.err)
+                return seman_report_err();
+            if (left.type != SEMAN_BOOLEAN)
+                return seman_print_type_mismatch_error(root->binop.left,
+                                                       "Expected boolean",
+                                                       sb);
+            if (right.type != SEMAN_BOOLEAN)
+                return
+        seman_print_type_mismatch_error(root->binop.right,
+                                        "Expected boolean",
+                                        sb);
+            return seman_report_booelan();
         }
         case AST_EQ:
         case AST_LE:
@@ -81,56 +184,133 @@ seman_type_check_proc(struct ast_node * root, struct src_buffer * sb)
         case AST_NE:
         case AST_LT:
         case AST_GT: {
-            enum seman_type left = seman_type_check_proc(root->binop.left, sb);
-            enum seman_type right = seman_type_check_proc(root->binop.right, sb);
-            if (left == SEMAN_ERR || right == SEMAN_ERR) return SEMAN_ERR;
-            if (left != SEMAN_INTEGER)
-                return seman_print_error(root->binop.left, "Expected integer", sb);
-            if (right != SEMAN_INTEGER)
-                return seman_print_error(root->binop.right, "Expected integer", sb);
-            return SEMAN_BOOLEAN;
+            struct seman_report left = seman_proc(root->binop.left,
+                                                  sb,
+                                                  current_scope,
+                                                  id);
+            struct seman_report right = seman_proc(root->binop.right,
+                                                   sb,
+                                                   current_scope,
+                                                   id);
+            if (left.err || right.err) return seman_report_err();
+            if (left.type != SEMAN_INTEGER)
+                return seman_print_type_mismatch_error(root->binop.left,
+                                                       "Expected integer",
+                                                       sb);
+            if (right.type != SEMAN_INTEGER)
+                return seman_print_type_mismatch_error(root->binop.right,
+                                                       "Expected integer",
+                                                       sb);
+            return seman_report_booelan();
         }
         default:
-            return seman_print_error(root, "Unknown binary operator", sb);
+            return seman_print_type_mismatch_error(root, "Unknown binary operator", sb);
         }
     }
     case AST_UNOP: {
         switch (root->unop.op) {
         case AST_NEG: {
-            enum seman_type child = seman_type_check_proc(root->unop.child, sb);
-            if (child == SEMAN_ERR) return SEMAN_ERR;
-            if (child != SEMAN_INTEGER) return seman_print_error(root->unop.child, "Expected integer", sb);
-            return SEMAN_INTEGER;
+            struct seman_report child = seman_proc(root->unop.child,
+                                                   sb,
+                                                   current_scope,
+                                                   id);
+            if (child.err) return seman_report_err();
+            if (child.type != SEMAN_INTEGER)
+                return seman_print_type_mismatch_error(root->unop.child,
+                                                       "Expected integer",
+                                                       sb);
+            return seman_report_integer();
         }
         case AST_NOT: {
-            enum seman_type child = seman_type_check_proc(root->unop.child, sb);
-            if (child == SEMAN_ERR) return SEMAN_ERR;
-            if (child != SEMAN_BOOLEAN) return seman_print_error(root->unop.child, "Expected boolean", sb);
-            return SEMAN_BOOLEAN;
+            struct seman_report child = seman_proc(root->unop.child,
+                                                   sb,
+                                                   current_scope,
+                                                   id);
+            if (child.err) return seman_report_err();
+            if (child.type != SEMAN_BOOLEAN)
+                return seman_print_type_mismatch_error(root->unop.child,
+                                                       "Expected boolean",
+                                                       sb);
+            return seman_report_booelan();
         }
         default:
-            return seman_print_error(root, "Unknown unary operator", sb);
+            return seman_print_type_mismatch_error(root,
+                                                   "Unknown unary operator",
+                                                   sb);
         }
     }
     case AST_PRNT: {
-        enum seman_type type = seman_type_check_proc(root->print.child, sb);
-        switch (type) {
+        struct seman_report child = seman_proc(root->print.child,
+                                               sb,
+                                               current_scope,
+                                               id);
+        if (child.err) return seman_report_err();
+        switch (child.type) {
         case SEMAN_INTEGER:
         case SEMAN_BOOLEAN:
-        case SEMAN_ERR: return type;
-        default: return seman_print_error(root->print.child, "Expected boolean or integer.", sb);
+            return seman_report_null();
+        default: return seman_print_type_mismatch_error(root->print.child,
+                                                        "Expected boolean or integer.",
+                                                        sb);
         }
     }
     case AST_BLOCK: {
+        struct sym_scope * scope = sym_scope_new(current_scope);
         int cnt_statements = darr_size(root->block.statements);
         for (int i = 0; i < cnt_statements; i++) {
             struct ast_node ** stmt = darr_get(root->block.statements, i);
-            if (seman_type_check_proc(*stmt, sb) == SEMAN_ERR) return SEMAN_ERR;
+            if (seman_proc(*stmt, sb, scope, id).err) return seman_report_err();
         }
-        return SEMAN_NULL;
+        return seman_report_null();
     }
-    case AST_PUNCTUATOR: return SEMAN_NULL;
-    default: return SEMAN_ERR;
+    case AST_IDENT: {
+        struct symbol * sym = sym_scope_find(current_scope, root->ident.name);
+        if (!sym) return seman_print_unknown_identifier_error(root, sb);
+        root->ident.sym = sym;
+        return (struct seman_report){
+            .type = seman_type_from_symtable(sym_type(sym))
+        };
+    }
+    case AST_ASSIGNMENT: {
+        struct seman_report rhs = seman_proc(root->asn.rhs, sb, current_scope, id);
+        if (rhs.err) return seman_report_err();
+
+        struct symbol * sym = sym_scope_find(current_scope, root->asn.name);
+        if (!sym) return seman_print_unknown_identifier_error(root, sb);
+        root->asn.sym = sym;
+
+        if (seman_type_from_symtable(sym_type(sym)) != rhs.type)
+            return seman_print_type_mismatch_error(root, "Type mismatch.", sb);
+
+        return (struct seman_report) {
+            .type = rhs.type
+        };
+    }
+    case AST_DECLARATION: {
+        // check rhs
+        struct seman_report rhs = { .type = SEMAN_NULL };
+        if (root->decl.rhs) rhs = seman_proc(root->decl.rhs, sb, current_scope, id);
+
+        // duplicate declaration check
+        struct symbol * sym = sym_scope_find_local(current_scope, root->decl.name);
+        if (sym) return seman_print_duplicate_declaration_error(root, sb);
+
+        // get left type
+        enum seman_type left_type = seman_from_ast_scalar(root->decl.type);
+
+        // type mismatch
+        if (rhs.type != SEMAN_NULL && left_type != rhs.type)
+            return seman_print_type_mismatch_error(root, "Type mismatch.", sb);
+
+        // install symbol
+        sym = sym_new(current_scope,
+                      root->decl.name,
+                      symtable_type_from_seman(left_type));
+        root->decl.sym = sym;
+        return (struct seman_report){ .type = left_type };
+    }
+    case AST_PUNCTUATOR: return seman_report_null();
+    default: return seman_report_err();
     }
 }
 
@@ -139,7 +319,8 @@ seman_type_check_proc(struct ast_node * root, struct src_buffer * sb)
  * Public API *
  * *************/
 bool
-seman_type_check(struct ast_node * root, struct src_buffer * sb)
+seman(struct ast_node * root, struct src_buffer * sb, struct sym_scope * scope)
 {
-    return seman_type_check_proc(root, sb) != SEMAN_ERR;
+    int id = 0;
+    return !seman_proc(root, sb, scope, &id).err;
 }

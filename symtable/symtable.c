@@ -1,106 +1,68 @@
-#include "symtable.h"
 #include <stdlib.h>
 #include <string.h>
+#include "symtable.h"
+#include "../darr/darr.h"
+
+struct sym_scope {
+    struct sym_scope * parent;
+    struct darr * arr; // array of struct symbols
+    int * id;
+};
 
 
-/***********************
- * Private Definitions *
- ***********************/
-static struct scope *
-scope_new(struct symrec * head, struct scope * parent)
+struct sym_scope *
+sym_scope_new(struct sym_scope * parent_scope)
 {
-    struct scope * new = malloc(sizeof(struct scope));
-    *new = (struct scope){
-        .head = head,
-        .parent = parent
+    struct sym_scope *  new = malloc(sizeof(struct sym_scope));
+    *new = (struct sym_scope) {
+        .parent = parent_scope,
+        .arr = darr_init(sizeof(struct symbol)),
+        .id = parent_scope ? parent_scope->id : malloc(sizeof(int))
     };
     return new;
 }
 
-void
-symrec_destroy(struct symrec ** sym)
-{
-    if (!sym) return;
-    while (*sym) {
-        struct symrec * tmp = *sym;
-        *sym = sym[0]->next;
-        if (tmp->name) free(tmp->name);
-        free(tmp);
-    }
-    *sym = NULL;
-}
 
-static struct symrec *
-symrec_inscope(struct scope *scope, char *name)
+struct symbol *
+sym_scope_find_local(struct sym_scope * scope, char * name)
 {
-    if (!scope) return NULL;
-    if (!name) return NULL;
-    struct symrec *rec = scope->head;
-    while (rec) {
-        if (strcmp(rec->name, name) == 0)
-            return rec;
-        rec = rec->next;
+    if (!scope || !name) return NULL;
+    int n = darr_size(scope->arr);
+    for (int i = 0; i < n; i++) {
+        struct symbol * sym = darr_get(scope->arr, i);
+        if (strcmp(sym->name, name) == 0) return sym;
     }
     return NULL;
 }
 
-static struct symrec *
-symrec_new(char * name, struct symrec * next, int type)
-{
-    struct symrec * new = malloc(sizeof(struct symrec));
-    *new = (struct symrec){
-        .name = strdup(name),
-        .next = next,
-        .type = type
-    };
-    return new;
-}
-
-
-/**************
- * Public API *
- **************/
-struct scope *
-scope_enter_new(struct scope * curr)
-{
-    return scope_new(NULL, curr);
-}
-
-struct scope *
-scope_exit(struct scope * curr)
-{
-    if (!curr) return NULL;
-    struct scope * ret = curr->parent;
-    symrec_destroy(&curr->head);
-    free(curr);
-    return ret;
-}
-
-
-struct symrec *
-symbol_lookup(struct scope * scope, char * name)
+struct symbol *
+sym_scope_find(struct sym_scope * scope, char * name)
 {
     if (!name) return NULL;
     while (scope) {
-        struct symrec * res = symrec_inscope(scope, name);
-        if (res) return res;
+        struct symbol * sym = sym_scope_find_local(scope, name);
+        if (sym) return sym;
         scope = scope->parent;
     }
     return NULL;
 }
 
-struct symrec *
-symbol_insert(struct scope * scope, char * name, int type)
+struct symbol *
+sym_new(struct sym_scope * scope, char * name, enum sym_scalar_type type)
 {
-    if (!scope) return NULL;
-    if (!name) return NULL;
-    if (symrec_inscope(scope, name)) return NULL;
-    return scope->head = symrec_new(name, scope->head, type);
+    if (!scope || !name) return NULL;
+    struct symbol * sym = malloc(sizeof(struct symbol));
+    *sym = (struct symbol) {
+        .id = (*scope->id)++,
+        .name = name,
+        .type = type,
+    };
+    darr_push_back(scope->arr, sym);
+    return sym;
 }
 
-
-char *
-symbol_name(struct symrec * sym)
+enum sym_scalar_type
+sym_type(struct symbol * sym)
 {
-    return sym->name;
+    return sym->type;
 }

@@ -4,6 +4,7 @@
 #include "ast_kind.h"
 #include "../cli/cli.h"
 #include "../darr/darr.h"
+#include "../symtable/symtable.h"
 
 #ifndef AST_H
 #define AST_H 1
@@ -47,6 +48,7 @@ struct ast_scalar_node {
 
 struct ast_ident_node {
     char * name;
+    struct symbol * sym;
 };
 
 struct ast_binop_node {
@@ -70,15 +72,16 @@ struct ast_block_node {
 };
 
 
-
 struct ast_decl_node {
     char * name;
+    struct symbol * sym;
     enum ast_scalar_type type;
     struct ast_node * rhs;
 };
 
 struct ast_asn_node {
     char * name;
+    struct symbol * sym;
     struct ast_node * rhs;
 };
 

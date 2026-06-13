@@ -1,25 +1,26 @@
-#ifndef SYMBOL_TABLE_H
-#define SYMBOL_TABLE_H 1
+#ifndef SYMTABLE_H
+#define SYMTABLE_H 1
 
-struct symrec {
+
+enum sym_scalar_type {
+    SYM_INTEGER,
+    SYM_BOOLEAN,
+};
+
+
+struct symbol {
     char * name;
-    struct symrec * next;
-    int type;
+    enum sym_scalar_type type;
+    int id;
 };
 
-struct scope {
-    struct symrec * head;
-    struct scope * parent;
-};
+struct sym_scope;
 
-
-
-struct scope * scope_enter_new(struct scope * curr);
-struct scope * scope_exit(struct scope * curr);
-struct symrec * symbol_insert(struct scope * scope, char * name, int type);
-struct symrec * symbol_lookup(struct scope * scope, char * name);
-
-char * symbol_name(struct symrec * sym);
+struct sym_scope *   sym_scope_new(struct sym_scope * parent_scope);
+struct symbol    *   sym_scope_find_local(struct sym_scope * scope, char * name);
+struct symbol    *   sym_scope_find(struct sym_scope * scope, char * name);
+struct symbol    *   sym_new(struct sym_scope * scope, char * name, enum sym_scalar_type type);
+enum sym_scalar_type sym_type(struct symbol * sym);
 
 #endif
-// SYMBOL_TABLE_H
+// SYMTABLE_H

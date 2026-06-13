@@ -125,6 +125,7 @@ SRCS_C += $(BOOLEAN_C)
 SRCS_C += $(SEMAN_C)
 SRCS_C += $(IR_C)
 SRCS_C += $(CG_C)
+SRCS_C += $(SYM_C)
 
 OBJS   = $(SRCS_C:%.c=%.o)
 
@@ -171,6 +172,7 @@ $(DARR_C): $(DARR_H)
 $(BOOLEAN_C): $(BOOLEAN_H)
 $(SEMAN_C): $(SEMAN_H)
 $(SRCBUF_C): $(SRCBUF_H)
+$(SYM_C): $(SYM_H)
 
 
 clean:

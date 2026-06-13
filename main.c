@@ -5,7 +5,6 @@
 #include "parser/parser.tab.h"
 #include "lexer/lex.yy.h"
 #include "ast/ast.h"
-#include "symtable/symtable.h"
 #include "intrep/interp.h"
 #include "cg/cg.h"
 #include "darr/darr.h"
@@ -87,13 +86,14 @@ int main(int argc, char * const * argv)
     if (ast_ctx.text) ast_print_texttree(ast_root, ast_ctx.text);
 
 
-   /*  /\********************* */
-   /*   * Semantic Analysis * */
-   /*   *********************\/ */
-   /*  if (!seman_type_check(ast_root, &sb)) { */
-   /*      exit_status = EXIT_FAILURE; */
-   /*      goto destruct; */
-   /*  } */
+    /*********************
+     * Semantic Analysis *
+     *********************/
+    struct sym_scope * scope = sym_scope_new(NULL);
+    if (!seman(ast_root, &sb, scope)) {
+        exit_status = EXIT_FAILURE;
+        goto destruct;
+    }
 
 
    /* /\******************************* */
