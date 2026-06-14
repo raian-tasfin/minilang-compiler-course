@@ -28,6 +28,7 @@ vm_op : uint8_t {
     VM_EQ,
     VM_LOAD,
     VM_STORE,
+    VM_JMP,
     VM_CJMP,
     VM_PRNT,
     VM_EXIT,
@@ -80,6 +81,12 @@ struct vm_cjmp_instruction {
     uint8_t loc_reg: 8;
 };
 
+/* Jump Instruction */
+struct vm_jmp_instruction {
+    enum vm_op op: 8;
+    uint8_t loc_reg: 8;
+};
+
 /* Binary Operation */
 struct vm_binop_instruction {
     enum vm_op op: 8;
@@ -117,6 +124,7 @@ union vm_instr_view {
     struct vm_load_instruction  load;
     struct vm_store_instruction store;
     struct vm_print_instruction print;
+    struct vm_jmp_instruction   jmp;
     struct vm_cjmp_instruction  cjmp;
     uint32_t                    raw;
 };

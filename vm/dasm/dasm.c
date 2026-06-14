@@ -73,6 +73,12 @@ vmdasm_dasm(struct darr * program, FILE * outstream)
             fprintf(outstream, "\tr%d", view->print.reg);
             break;
         }
+        case VM_CJMP: {
+            fprintf(outstream, "\tr%d\t%d\n", view->cjmp.cond_reg, view->cjmp.loc_reg);
+        }
+        case VM_JMP: {
+
+        }
         case VM_EXIT: break;
         case VM_ERR: break;
         }

@@ -102,11 +102,11 @@ struct ir_stmt_var_decl {
 
 struct ir_stmt_cjmp {
     struct symbol * cond_symb;
-    int goto_line;
+    struct symbol * loc_symb;
 };
 
 struct ir_stmt_jmp {
-    int goto_line;
+    struct symbol * loc_symb;
 };
 
 struct ir_stmt {

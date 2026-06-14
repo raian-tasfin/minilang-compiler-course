@@ -147,6 +147,31 @@ vm_exec_cjmp(struct vm * vm, union vm_instr_view view)
 }
 
 static bool
+vm_exec_jmp(struct vm * vm, union vm_instr_view view)
+{
+    /* ensure vm and op dispatch */
+    if (!vmcr_ensure_vm(vm)) return false;
+    vmcr_ensure_op_dispatch(view, VM_JMP);
+
+    /* variables */
+    int loc = vm->state.r[view.jmp.loc_reg];
+    int prog_len = darr_size(vm->state.program);
+
+    /* bounds check */
+    if (loc >= prog_len) {
+        fprintf(stderr,
+                "[VM]: Locatoin %d overflows program length %d\n",
+                loc, prog_len);
+        return false;
+    }
+
+    /* execute */
+    vm->state.ip = loc;
+
+    return true;
+}
+
+static bool
 vm_exec_print(struct vm * vm, union vm_instr_view view)
 {
     if (!vmcr_ensure_vm(vm)) return false;
@@ -189,6 +214,7 @@ vm_op_to_str(enum vm_op op)
     case VM_EQ:    return "EQ";
     case VM_LOAD:  return "LOAD";
     case VM_STORE: return "STORE";
+    case VM_JMP:   return "JMP";
     case VM_CJMP:  return "CJMP";
     case VM_PRNT:  return "PRNT";
     case VM_EXIT:  return "EXIT";
@@ -259,6 +285,9 @@ vm_run(struct vm * vm)
             break;
         case VM_STORE:
             if (!(ok = vm_exec_store(vm, view))) goto panic;
+            break;
+        case VM_JMP:
+            if (!(ok = vm_exec_jmp(vm, view))) goto panic;
             break;
         case VM_CJMP:
             if (!(ok = vm_exec_cjmp(vm, view))) goto panic;
