@@ -316,58 +316,69 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
     }
     case AST_WHILE_LOOP: {
         /* Structure:
-         * goto condition
-         * begin block:
+         * part 1. goto condition line (starts at part 3)
+         * par 2. block:
          * ....
-         * condition: if condition goto begin_block
+         * part 3: condition = condition value calculation
+         * part 4: if condition goto block (starts at part 2)
          */
 
-        /* get condition symbol */
-        struct symbol * cond_sym =
-            ir_prog_generate_rec(root_unit,
-                                 node->while_loop.condition,
-                                 lineno,
-                                 scope);
-
-        /* goto condition */
-        struct ir_unit goto_condition_src = {
+        /*
+         * Part 1
+         */
+        struct ir_unit goto_condition_line_src = {
             .type = IR_STMT,
             .stmt = {
                 .type = IR_JMP,
                 .lineno = ++(*lineno),
-                .jmp = {
-                    .goto_line = -1
-                },
+                .jmp = { .goto_line = -1, }, // need backpatch
             },
         };
-        darr_push_back(root_unit->block, &goto_condition_src);
-        // will need this reference later to update the line number
-        struct ir_unit * goto_condition =
-            darr_get(root_unit->block,
-                     darr_size(root_unit->block) - 1);
+        darr_push_back(root_unit->block, &goto_condition_line_src);
+        struct ir_unit * goto_condition_line_ref
+            = darr_get(root_unit->block,
+                       darr_size(root_unit->block) - 1);
 
-        /* generate body */
+        // block starts immediately after this.
+        // so block start is lineno+1.
+        int block_start_line = *lineno + 1;
+        /*
+         * Part 2
+         */
         ir_prog_generate_rec(root_unit,
                              node->while_loop.body,
                              lineno,
                              scope);
 
-        /* generate condition */
-        struct ir_unit if_line = {
+        /*
+         * Part 3
+         */
+        int condition_line = *lineno + 1;
+        // bakcpatch condition line
+        goto_condition_line_ref->stmt.jmp.goto_line = condition_line;
+
+        // calculate condition
+        struct symbol * cond =
+            ir_prog_generate_rec(root_unit,
+                                 node->while_loop.condition,
+                                 lineno,
+                                 scope);
+
+        /*
+         * Part 4
+         */
+        struct ir_unit cond_jmp_line = {
             .type = IR_STMT,
             .stmt = {
                 .type = IR_CJMP,
-                .lineno = ++(*lineno),
+                .lineno = (*lineno)++,
                 .cjmp = {
-                    .cond_symb = cond_sym,
-                    .goto_line = goto_condition_src.stmt.lineno + 1,
-                }
-            }
+                    .cond_symb = cond,
+                    .goto_line = block_start_line,
+                },
+            },
         };
-        darr_push_back(root_unit->block, &if_line);
-
-        // patch goto condition
-        goto_condition->stmt.jmp.goto_line = if_line.stmt.lineno;
+        darr_push_back(root_unit->block, &cond_jmp_line);
         return NULL;
     }
     };
@@ -541,12 +552,14 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
                    cond_name,
                    "goto",
                    unit->stmt.cjmp.goto_line);
+        return;
     }
     case IR_JMP: {
         ir_fprintf(ctx,
                    "%7s   %7d\n",
                    "goto",
                    unit->stmt.jmp.goto_line);
+        return;
     }
     }
 }
