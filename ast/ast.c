@@ -228,6 +228,37 @@ error:
 }
 
 struct ast_node *
+ast_ctr_while_loop(struct ast_node * condition,
+                   struct ast_node * body,
+                   struct ast_node * current_block,
+                   struct ast_src_loc loc)
+{
+    struct ast_node * node = NULL;
+    if (!(node = malloc(sizeof(struct ast_node)))) {
+        fprintf(stderr, "Failed allocating node.\n");
+        ast_print_src(loc);
+        goto error;
+    }
+
+    node[0] = (struct ast_node) {
+        .type = AST_WHILE_LOOP,
+        .current_block = current_block,
+        .loc = loc,
+        .while_loop = {
+            .condition = condition,
+            .body = body,
+        }
+    };
+    return node;
+
+ error:
+    if (node) free(node);
+    return NULL;
+}
+
+
+
+struct ast_node *
 ast_ctr_punctuator(enum ast_punctuator_type type,
                    struct ast_node * current_block,
                    struct ast_src_loc loc)
@@ -442,6 +473,11 @@ ast_print_texttree_r(struct ast_node *root,
         if (root->asn.rhs)
             ast_print_texttree_r(root->asn.rhs, strm, prefix, plen + clen, 1);
         break;
+    case AST_WHILE_LOOP:
+        fprintf(strm, "%s\n", astk_kind_to_str(AST_WHILE_LOOP));
+        ast_print_texttree_r(root->while_loop.condition,  strm, prefix, plen + clen, 0);
+        ast_print_texttree_r(root->while_loop.body, strm, prefix, plen + clen, 1);
+        break;
     default:
         fprintf(strm, "%s\n", astk_kind_to_str(root->type));
         break;
@@ -505,6 +541,9 @@ ast_to_dot(struct ast_node * root,
     case AST_ASSIGNMENT:
         fprintf(strm, "  node%d [label=\"AST_ASSIGNMENT: %s\"];\n", my_id, root->asn.name);
         break;
+    case AST_WHILE_LOOP:
+        fprintf(strm, "  node%d [label=\"WHILE\"];\n", my_id);
+        break;
     default:
         fprintf(strm, "  node%d [label=\"%s\"];\n", my_id, astk_kind_to_str(root->type));
         break;
@@ -538,6 +577,10 @@ ast_to_dot(struct ast_node * root,
         }
         break;
     }
+    case AST_WHILE_LOOP:
+        ast_to_dot(root->while_loop.condition,  strm, my_id, dot_id);
+        ast_to_dot(root->while_loop.body, strm, my_id, dot_id);
+        break;
     default:
         break;
     }
@@ -594,6 +637,10 @@ ast_delete(struct ast_node ** root)
         free((*root)->asn.name);
         ast_delete(&(*root)->asn.rhs);
         break;
+    case AST_WHILE_LOOP:
+        ast_delete(&(*root)->while_loop.condition);
+        ast_delete(&(*root)->while_loop.body);
+        break;
     case AST_PUNCTUATOR:
         break;
     }
@@ -648,6 +695,10 @@ ast_finalize_r(struct ast_node * node,
     case AST_ASSIGNMENT:
         ast_finalize_r(node->asn.rhs, containing_block);
         break;
+    case AST_WHILE_LOOP:
+        ast_finalize_r(node->while_loop.condition,  containing_block);
+        ast_finalize_r(node->while_loop.body, containing_block);
+        break;
     case AST_SCALAR:
     case AST_PUNCTUATOR:
     case AST_IDENT:
@@ -660,4 +711,21 @@ void
 ast_finalize(struct ast_node * root)
 {
     ast_finalize_r(root, NULL);
+}
+
+
+void
+ast_ctx_destroy(struct ast_ctx * ctx)
+{
+    if (!ctx) return;
+    if (ctx->dot
+        && ctx->dot != stderr
+        && ctx->dot != stdout
+        && ctx->dot != stdin)
+        fclose(ctx->dot);
+    if (ctx->text
+        && ctx->text != stderr
+        && ctx->text != stdout
+        && ctx->text != stdin)
+        fclose(ctx->text);
 }

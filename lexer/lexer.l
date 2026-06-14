@@ -24,6 +24,7 @@ FALSE_STR False
 [[:blank:]]+               { lxr_process(LEX_BLNK, yylval, yylloc, yyscanner); }
 {cont}                     { lxr_process(LEX_CONT, yylval, yylloc, yyscanner); }
 
+"while"                    { lxr_process(WHILE, yylval, yylloc, yyscanner); }
 "print"                    { lxr_process(PRNT, yylval, yylloc, yyscanner); }
 
 {TRUE_STR}                 { lxr_process(BOOLEAN, yylval, yylloc, yyscanner); }

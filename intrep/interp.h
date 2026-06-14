@@ -19,6 +19,8 @@ enum ir_stmt_type {
     IR_VAR_ASSIGNMENT,
     IR_VAR_DECL,
     IR_PRINT,
+    IR_CJMP,
+    IR_JMP,
 };
 
 
@@ -94,8 +96,17 @@ struct ir_stmt_print {
     struct symbol * val;
 };
 
-struct ir_var_decl {
+struct ir_stmt_var_decl {
     struct symbol * sym;
+};
+
+struct ir_stmt_cjmp {
+    struct symbol * cond_symb;
+    int goto_line;
+};
+
+struct ir_stmt_jmp {
+    int goto_line;
 };
 
 struct ir_stmt {
@@ -104,10 +115,12 @@ struct ir_stmt {
     union {
         struct ir_stmt_const_asn const_asn;
         struct ir_stmt_binop_asn binop_asn;
+        struct ir_stmt_var_decl  decl;
         struct ir_stmt_unop_asn  unop_asn;
         struct ir_stmt_var_asn   var_asn;
         struct ir_stmt_print     print;
-        struct ir_var_decl       decl;
+        struct ir_stmt_cjmp      cjmp;
+        struct ir_stmt_jmp       jmp;
     };
 };
 
@@ -142,6 +155,9 @@ struct ir_ctx {
 
 struct ir_ctx
 ir_ctx_init(struct cli_opts * cliopts);
+
+void
+ir_ctx_destroy(struct ir_ctx * ctx);
 
 
 void

@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdbool.h>
 #include "ast_kind.h"
 #include "../cli/cli.h"
@@ -19,6 +18,7 @@ struct ast_ctx {
 };
 
 struct ast_ctx ast_ctx_init(struct cli_ast_opts opts);
+void ast_ctx_destroy(struct ast_ctx * ctx);
 
 
 /*****************
@@ -72,6 +72,10 @@ struct ast_block_node {
     struct sym_scope * scope;
 };
 
+struct ast_while_loop {
+    struct ast_node * condition;
+    struct ast_node * body;
+};
 
 struct ast_decl_node {
     char * name;
@@ -100,6 +104,7 @@ struct ast_node {
         struct ast_decl_node decl;
         struct ast_asn_node asn;
         struct ast_ident_node ident;
+        struct ast_while_loop while_loop;
     };
 };
 
@@ -141,6 +146,13 @@ struct ast_node *
 ast_ctr_prnt(struct ast_node * subexpr,
              struct ast_node * current_block,
              struct ast_src_loc loc);
+
+struct ast_node *
+ast_ctr_while_loop(struct ast_node * condition,
+                   struct ast_node * body,
+                   struct ast_node * current_block,
+                   struct ast_src_loc loc);
+
 
 struct ast_node *
 ast_ctr_block(struct ast_node * parent_block);

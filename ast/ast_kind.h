@@ -13,6 +13,7 @@ enum ast_kind {
     AST_PUNCTUATOR,
     AST_DECLARATION,
     AST_ASSIGNMENT,
+    AST_WHILE_LOOP,
 };
 
 

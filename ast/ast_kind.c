@@ -41,7 +41,7 @@ astk_kind_to_str(enum ast_kind kind)
 {
     switch (kind) {
     case AST_SCALAR:      return "AST_SCALAR";
-    case AST_IDENT:      return "AST_IDENT";
+    case AST_IDENT:       return "AST_IDENT";
     case AST_BINOP:       return "AST_BINOP";
     case AST_UNOP:        return "AST_UNOP";
     case AST_PRNT:        return "AST_PRNT";
@@ -49,6 +49,7 @@ astk_kind_to_str(enum ast_kind kind)
     case AST_PUNCTUATOR:  return "AST_PUNCTUATOR";
     case AST_DECLARATION: return "AST_DECLARATION";
     case AST_ASSIGNMENT:  return "AST_ASSIGNMENT";
+    case AST_WHILE_LOOP:  return "AST_WHILE_LOOP";
     default: return "UNKNOWN";
     }
 }

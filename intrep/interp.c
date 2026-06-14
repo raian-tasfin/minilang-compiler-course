@@ -314,7 +314,63 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
     case AST_IDENT: {
         return node->ident.sym;
     }
+    case AST_WHILE_LOOP: {
+        /* Structure:
+         * goto condition
+         * begin block:
+         * ....
+         * condition: if condition goto begin_block
+         */
+
+        /* get condition symbol */
+        struct symbol * cond_sym =
+            ir_prog_generate_rec(root_unit,
+                                 node->while_loop.condition,
+                                 lineno,
+                                 scope);
+
+        /* goto condition */
+        struct ir_unit goto_condition_src = {
+            .type = IR_STMT,
+            .stmt = {
+                .type = IR_JMP,
+                .lineno = ++(*lineno),
+                .jmp = {
+                    .goto_line = -1
+                },
+            },
+        };
+        darr_push_back(root_unit->block, &goto_condition_src);
+        // will need this reference later to update the line number
+        struct ir_unit * goto_condition =
+            darr_get(root_unit->block,
+                     darr_size(root_unit->block) - 1);
+
+        /* generate body */
+        ir_prog_generate_rec(root_unit,
+                             node->while_loop.body,
+                             lineno,
+                             scope);
+
+        /* generate condition */
+        struct ir_unit if_line = {
+            .type = IR_STMT,
+            .stmt = {
+                .type = IR_CJMP,
+                .lineno = ++(*lineno),
+                .cjmp = {
+                    .cond_symb = cond_sym,
+                    .goto_line = goto_condition_src.stmt.lineno + 1,
+                }
+            }
+        };
+        darr_push_back(root_unit->block, &if_line);
+
+        // patch goto condition
+        goto_condition->stmt.jmp.goto_line = if_line.stmt.lineno;
+        return NULL;
     }
+    };
 }
 
 
@@ -427,7 +483,7 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
         ir_sym_to_str(unit->stmt.binop_asn.val1, val1);
         ir_sym_to_str(unit->stmt.binop_asn.val2, val2);
         ir_fprintf(ctx,
-                   "%7s = %7s %3s %7s\n",
+                   "%7s = %7s %4s %7s\n",
                    dest_name,
                    val1,
                    ir_binopch(unit->stmt.binop_asn.op),
@@ -440,7 +496,7 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
         ir_sym_to_str(unit->stmt.unop_asn.dest, dest_name);
         ir_sym_to_str(unit->stmt.unop_asn.val, val);
         ir_fprintf(ctx,
-                   "%7s = %7s %3s %7s\n",
+                   "%7s = %7s %4s %7s\n",
                    dest_name,
                    "",
                    ir_unopch(unit->stmt.unop_asn.op),
@@ -470,11 +526,38 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
         ir_sym_to_str(unit->stmt.decl.sym, dest_name);
         sprintf(type, "%s", scalar_type_to_str(unit->stmt.decl.sym->type));
         ir_fprintf(ctx,
-                   "%7s   %7s     <%7s>\n",
+                   "%7s   %7s      <%7s>\n",
                    "decl",
                    dest_name,
                    type);
         return;
     }
+    case IR_CJMP: {
+        char cond_name[65];
+        ir_sym_to_str(unit->stmt.cjmp.cond_symb, cond_name);
+        ir_fprintf(ctx,
+                   "%7s   %7s %4s %7d\n",
+                   "if",
+                   cond_name,
+                   "goto",
+                   unit->stmt.cjmp.goto_line);
     }
+    case IR_JMP: {
+        ir_fprintf(ctx,
+                   "%7s   %7d\n",
+                   "goto",
+                   unit->stmt.jmp.goto_line);
+    }
+    }
+}
+
+void
+ir_ctx_destroy(struct ir_ctx * ctx)
+{
+    if (!ctx) return;
+    if (ctx->rprt
+        && ctx->rprt != stdout
+        && ctx->rprt != stdin
+        && ctx->rprt != stderr)
+        fclose(ctx->rprt);
 }

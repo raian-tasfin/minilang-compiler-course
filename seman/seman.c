@@ -237,6 +237,28 @@ seman_proc(struct ast_node * root,
         }
         return seman_report_null();
     }
+    case AST_WHILE_LOOP: {
+        /* Ensure boolean condition */
+        struct seman_report cond =
+            seman_proc(root->while_loop.condition,
+                       sb,
+                       current_scope,
+                       id);
+        if (cond.err) return seman_report_err();
+        if (cond.type != SEMAN_BOOLEAN)
+            return seman_print_type_mismatch_error(root->unop.child,
+                                                   "Expected boolean",
+                                                   sb);
+        /* Check block */
+        struct seman_report body =
+            seman_proc(root->while_loop.body,
+                       sb,
+                       current_scope,
+                       id);
+        if (body.err) return seman_report_err();
+
+        return seman_report_null();
+    }
     case AST_IDENT: {
         struct symbol * sym = sym_scope_find(current_scope, root->ident.name);
         if (!sym) return seman_print_unknown_identifier_error(root, sb);

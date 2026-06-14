@@ -92,6 +92,8 @@ ast_loc_span(YYLTYPE a, YYLTYPE b)
 %token LBRACE
 %token RBRACE
 
+%token WHILE
+
 %token TYPE_SPEC_INTEGER
 %token TYPE_SPEC_BOOLEAN
 %token ASSIGN
@@ -121,7 +123,14 @@ ast_loc_span(YYLTYPE a, YYLTYPE b)
 /*******************************
  * Nonterminal Semantic Types  *
  *******************************/
-%type <struct ast_node *> expr program stmt block block_body decl assign
+%type <struct ast_node *> expr
+%type <struct ast_node *> program
+%type <struct ast_node *> stmt
+%type <struct ast_node *> block
+%type <struct ast_node *> block_body
+%type <struct ast_node *> decl
+%type <struct ast_node *> assign
+%type <struct ast_node *> while_stmt
 
 
 /***********
@@ -141,6 +150,7 @@ stmt:
 | block                      { $$ = $1; }
 | decl
 | assign
+| while_stmt
 ;
 
 block:
@@ -154,6 +164,9 @@ block_body:
   stmt                       { $$ = ast_ctr_block(NULL); darr_push_back($$->block.statements, &$1); }
 | block_body stmt            { darr_push_back(($1)->block.statements, &$2); $$ = $1; }
 | block_body NEWLINE         { $$ = $1; }
+;
+
+while_stmt: WHILE LPRN expr RPRN block {$$ = ast_ctr_while_loop($3, $5, NULL, ast_loc_span(@1, @5)); }
 ;
 
 decl:

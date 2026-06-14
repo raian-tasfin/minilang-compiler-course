@@ -111,30 +111,30 @@ int main(int argc, char * const * argv)
    }
    ir_print(&ir_ctx, ir_program);
 
-    /*******************
-     * Code Generation *
-     *******************/
-    if (cliopts.cg.generate) {
-        /* Ensure options */
-        if (!cliopts.cg.outpath) {
-            exit_status = EXIT_FAILURE;
-            goto destruct;
-        }
-        /* Ensure context */
-        if (!(cg_ctx = cg_ctx_init(ir_program))) {
-            exit_status = EXIT_FAILURE;
-            goto destruct;
-        }
-        program = cg_generate_code(cg_ctx);
-        /* Ensure output file */
-        if (!(cg_out = fopen(cliopts.cg.outpath, "wb"))) {
-            exit_status = EXIT_FAILURE;
-            goto destruct;
-        }
-        fwrite(cg_buffer(program),
-               darr_elem_size(program),
-               darr_size(program), cg_out);
-    }
+   /*  /\******************* */
+   /*   * Code Generation * */
+   /*   *******************\/ */
+   /*  if (cliopts.cg.generate) { */
+   /*      /\* Ensure options *\/ */
+   /*      if (!cliopts.cg.outpath) { */
+   /*          exit_status = EXIT_FAILURE; */
+   /*          goto destruct; */
+   /*      } */
+   /*      /\* Ensure context *\/ */
+   /*      if (!(cg_ctx = cg_ctx_init(ir_program))) { */
+   /*          exit_status = EXIT_FAILURE; */
+   /*          goto destruct; */
+   /*      } */
+   /*      program = cg_generate_code(cg_ctx); */
+   /*      /\* Ensure output file *\/ */
+   /*      if (!(cg_out = fopen(cliopts.cg.outpath, "wb"))) { */
+   /*          exit_status = EXIT_FAILURE; */
+   /*          goto destruct; */
+   /*      } */
+   /*      fwrite(cg_buffer(program), */
+   /*             darr_elem_size(program), */
+   /*             darr_size(program), cg_out); */
+   /*  } */
 
     /************
      * Destruct *
@@ -149,9 +149,8 @@ int main(int argc, char * const * argv)
     if (ast_root) ast_delete(&ast_root);
     if (scanner) yylex_destroy(scanner);
     if (lxr_ctx.rprt && lxr_ctx.rprt != stdout) fclose(lxr_ctx.rprt);
-    if (ast_ctx.dot) fclose(ast_ctx.dot);
-    if (ast_ctx.text) fclose(ast_ctx.text);
-    if (ir_ctx.rprt && ir_ctx.rprt != stdout) fclose(ir_ctx.rprt);
+    ast_ctx_destroy(&ast_ctx);
+    ir_ctx_destroy(&ir_ctx);
     sym_scope_delete(scope);
     cg_ctx_destroy(&cg_ctx);
     darr_destroy(&program);

@@ -85,6 +85,7 @@ lxr_toktostr(int token_type)
     case LPRN:               return "LPRN";
     case RPRN:               return "RPRN";
     case PRNT:               return "PRNT";
+    case WHILE:              return "WHILE";
     case LBRACE:             return "LBRACE";
     case RBRACE:             return "RBRACE";
     case TYPE_SPEC_INTEGER:  return "TYPE_SPEC_INTEGER";
@@ -197,6 +198,7 @@ lxr_process_proc(int token_type,
 
         /* Keywords */
     case PRNT: lxr_print_token(PRNT, yylval, ctx); return PRNT;
+    case WHILE: lxr_print_token(WHILE, yylval, ctx); return WHILE;
 
     case LPRN:
         if (ctx) ctx->open_parens++;
