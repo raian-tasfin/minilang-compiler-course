@@ -19,6 +19,7 @@ enum ir_stmt_type {
     IR_VAR_ASSIGNMENT,
     IR_VAR_DECL,
     IR_PRINT,
+    IR_LABEL,
     IR_CJMP,
     IR_JMP,
 };
@@ -100,13 +101,17 @@ struct ir_stmt_var_decl {
     struct symbol * sym;
 };
 
+struct ir_stmt_label {
+    int id;
+};
+
 struct ir_stmt_cjmp {
     struct symbol * cond_symb;
-    struct symbol * loc_symb;
+    int loc_label;
 };
 
 struct ir_stmt_jmp {
-    struct symbol * loc_symb;
+    int loc_label;
 };
 
 struct ir_stmt {
@@ -119,6 +124,7 @@ struct ir_stmt {
         struct ir_stmt_unop_asn  unop_asn;
         struct ir_stmt_var_asn   var_asn;
         struct ir_stmt_print     print;
+        struct ir_stmt_label     label;
         struct ir_stmt_cjmp      cjmp;
         struct ir_stmt_jmp       jmp;
     };

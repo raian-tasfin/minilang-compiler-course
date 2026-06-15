@@ -110,7 +110,6 @@ int main(int argc, char * const * argv)
        goto destruct;
    }
    ir_print(&ir_ctx, ir_program);
-
    /*  /\******************* */
    /*   * Code Generation * */
    /*   *******************\/ */

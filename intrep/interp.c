@@ -76,7 +76,8 @@ static struct symbol *
 ir_prog_generate_rec(struct ir_unit * root_unit,
                      struct ast_node * node,
                      int * lineno,
-                     struct sym_scope * scope)
+                     struct sym_scope * scope,
+                     int * label)
 {
     switch (node->type) {
     case AST_SCALAR: {
@@ -140,11 +141,13 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
         struct symbol * val1 = ir_prog_generate_rec(root_unit,
                                                     node->binop.left,
                                                     lineno,
-                                                    scope);
+                                                    scope,
+                                                    label);
         struct symbol * val2 = ir_prog_generate_rec(root_unit,
                                                     node->binop.right,
                                                     lineno,
-                                                    scope);
+                                                    scope,
+                                                    label);
         struct ir_unit unit = {
             .type = IR_STMT,
             .stmt = {
@@ -173,7 +176,8 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
         struct symbol * val = ir_prog_generate_rec(root_unit,
                                                    node->unop.child,
                                                    lineno,
-                                                   scope);
+                                                   scope,
+                                                   label);
         struct ir_unit unit = {
             .type = IR_STMT,
             .stmt = {
@@ -193,7 +197,8 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
         struct symbol * val = ir_prog_generate_rec(root_unit,
                                                    node->print.child,
                                                    lineno,
-                                                   scope);
+                                                   scope,
+                                                   label);
         struct ir_unit unit = {
             .type = IR_STMT,
             .stmt = {
@@ -221,7 +226,8 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
             ir_prog_generate_rec(&block,
                                  *subnode,
                                  lineno,
-                                 block_scope);
+                                 block_scope,
+                                 label);
         }
 
         // now we push that block to the program
@@ -236,7 +242,8 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
         struct symbol * rhs = ir_prog_generate_rec(root_unit,
                                                    node->asn.rhs,
                                                    lineno,
-                                                   scope);
+                                                   scope,
+                                                   label);
         // statement
         struct ir_unit unit = {
             .type = IR_STMT,
@@ -294,7 +301,8 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
                 ir_prog_generate_rec(root_unit,
                                      node->decl.rhs,
                                      lineno,
-                                     scope);
+                                     scope,
+                                     label);
             struct ir_unit unit = {
                 .type = IR_STMT,
                 .stmt = {
@@ -308,7 +316,6 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
             };
             darr_push_back(root_unit->block, &unit);
         }
-
         return node->decl.sym;
     }
     case AST_IDENT: {
@@ -322,87 +329,66 @@ ir_prog_generate_rec(struct ir_unit * root_unit,
          * condition: if condition goto block
          */
 
-        /* load labels */
-        /* condition label: backpatch-1 */
-        struct symbol * condition_label = sym_new(scope, NULL, SCAL_INTEGER);
-        struct ir_unit store_cond_label = {
-            .type = IR_STMT,
-            .stmt = {
-                .type = IR_CONST_ASSIGNMENT,
-                .lineno = ++(*lineno),
-                .const_asn = {
-                    .dest = condition_label,
-                    .scalar = {
-                        .type = SCAL_INTEGER,
-                        .integer = -1,
-                    },
-                },
-            },
-        };
-        darr_push_back(root_unit->block, &store_cond_label);
-        // will need ref for backpatch
-        int store_cond_label_indx= darr_size(root_unit->block) - 1;
-
-        /* block label: backpatch-2 */
-        struct symbol * block_label = sym_new(scope, NULL, SCAL_INTEGER);
-        struct ir_unit store_block_label = {
-            .type = IR_STMT,
-            .stmt = {
-                .type = IR_CONST_ASSIGNMENT,
-                .lineno = ++(*lineno),
-                .const_asn = {
-                    .dest = block_label,
-                    .scalar = {
-                        .type = SCAL_INTEGER,
-                        .integer = -1,
-                    },
-                },
-            },
-        };
-        darr_push_back(root_unit->block, &store_block_label);
-        int store_block_label_indx = darr_size(root_unit->block) - 1;
+        int block_label_id = (*label)++;
+        int condition_label_id = (*label)++;
 
         /* goto condition */
-        struct ir_unit goto_condition = {
+        struct ir_unit goto_cond = {
             .type = IR_STMT,
             .stmt = {
                 .type = IR_JMP,
                 .lineno = ++(*lineno),
-                .jmp = { .loc_symb = condition_label, },
+                .jmp = { .loc_label = condition_label_id, },
             },
         };
-        darr_push_back(root_unit->block, &goto_condition);
+        darr_push_back(root_unit->block, &goto_cond);
 
-        /* block */
-        // block starts at this line
-        // backpatch-2
-        struct ir_unit * store_block_label_ref = darr_get(root_unit->block, store_block_label_indx);
-        store_block_label_ref->stmt.const_asn.scalar.integer = *lineno + 1;
+        /* block: */
+        struct ir_unit block_label = {
+            .type = IR_STMT,
+            .stmt = {
+                .type = IR_LABEL,
+                .lineno = ++(*lineno),
+                .label = { .id = block_label_id, },
+            },
+        };
+        darr_push_back(root_unit->block, &block_label);
+
+        /* block body */
         ir_prog_generate_rec(root_unit,
                              node->while_loop.body,
                              lineno,
-                             scope);
+                             scope,
+                             label);
 
-        /* store condition */
-        // backpatch-1: condition starts at this line
-        struct ir_unit * store_cond_label_ref = darr_get(root_unit->block, store_cond_label_indx);
-        store_cond_label_ref->stmt.const_asn.scalar.integer = *lineno + 1;
+        /* condition: */
+        struct ir_unit condition_label = {
+            .type = IR_STMT,
+            .stmt = {
+                .type = IR_LABEL,
+                .lineno = ++(*lineno),
+                .label = { .id = condition_label_id, },
+            },
+        };
+        darr_push_back(root_unit->block, &condition_label);
 
-        struct symbol * condition =
+        /* condition calculation */
+        struct symbol * cond_symb =
             ir_prog_generate_rec(root_unit,
                                  node->while_loop.condition,
                                  lineno,
-                                 scope);
+                                 scope,
+                                 label);
 
-        /* cjmp */
+         /* if condition goto block */
         struct ir_unit cjmp = {
             .type = IR_STMT,
             .stmt = {
                 .type = IR_CJMP,
                 .lineno = ++(*lineno),
                 .cjmp = {
-                    .cond_symb = condition,
-                    .loc_symb = block_label,
+                    .cond_symb = cond_symb,
+                    .loc_label = block_label_id,
                 },
             },
         };
@@ -419,13 +405,14 @@ ir_prog_generate(struct ast_node * root, struct sym_scope * scope)
 {
     if (!root) return NULL;
     int lineno = 0;
+    int label = 0;
 
     struct ir_unit * root_unit = malloc(sizeof(struct ir_unit));
     *root_unit = (struct ir_unit){
         .type = IR_BLOCK,
         .block = darr_init(sizeof(struct ir_unit)),
     };
-    ir_prog_generate_rec(root_unit, root, &lineno, scope);
+    ir_prog_generate_rec(root_unit, root, &lineno, scope, &label);
     return root_unit;
 }
 
@@ -504,7 +491,7 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
         return;
     }
 
-    printf("%3d. ", unit->stmt.lineno);
+    ir_fprintf(ctx, "%3d. ", unit->stmt.lineno);
 
     switch (unit->stmt.type) {
     case IR_CONST_ASSIGNMENT: {
@@ -572,26 +559,30 @@ ir_print(struct ir_ctx * ctx, struct ir_unit * unit)
                    type);
         return;
     }
+    case IR_LABEL: {
+        char label[65];
+        ir_fprintf(ctx,
+                   "label_%d:\n",
+                   unit->stmt.label.id);
+        return;
+    }
     case IR_CJMP: {
         char cond_name[65];
         char loc_name[65];
         ir_sym_to_str(unit->stmt.cjmp.cond_symb, cond_name);
-        ir_sym_to_str(unit->stmt.cjmp.loc_symb, loc_name);
         ir_fprintf(ctx,
-                   "%7s   %7s %4s %7s\n",
+                   "%7s   %7s %4s label_%d\n",
                    "if",
                    cond_name,
                    "goto",
-                   loc_name);
+                   unit->stmt.cjmp.loc_label);
         return;
     }
     case IR_JMP: {
-        char loc_name[65];
-        ir_sym_to_str(unit->stmt.jmp.loc_symb, loc_name);
         ir_fprintf(ctx,
-                   "%7s   %7s\n",
+                   "%7s   label_%d\n",
                    "goto",
-                   loc_name);
+                   unit->stmt.jmp.loc_label);
         return;
     }
     }
