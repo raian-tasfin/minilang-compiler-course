@@ -77,8 +77,8 @@ ir_unit_ctr(enum ir_unit_type type)
 {
     struct ir_unit unit = {
         .type = type,
-        .pred = darr_init(sizeof(struct ir_unit)),
-        .succ = darr_init(sizeof(struct ir_unit)),
+        .pred = darr_init(sizeof(struct ir_unit *)),
+        .succ = darr_init(sizeof(struct ir_unit *)),
     };
     return unit;
 }
@@ -155,13 +155,15 @@ ir_prog_add_cond_goto(struct ast_node * condition,
 
     /* condition calculation */
     // recursively add calculation here
+    // segfault here
+    puts("cond_symb before");
     struct symbol * cond_symb =
-        ir_prog_generate_rec(condition->while_loop.condition,
+        ir_prog_generate_rec(condition,
                              block,
                              scope,
                              lineno,
                              label);
-
+    puts("cond_symb after");
     /* if condition goto block */
     // construct
     struct ir_unit cjmp = ir_unit_stmt_ctr((struct ir_stmt){
@@ -213,6 +215,7 @@ ir_prog_generate_rec(struct ast_node * node,
         return dest;
     }
     case AST_BINOP: {
+        puts(astk_binop_to_str(node->binop.op));
         /* Destination type */
         enum scalar_type dest_type;
         switch (node->binop.op) {
@@ -444,8 +447,8 @@ ir_prog_generate_rec(struct ast_node * node,
         struct ast_node * body = node->while_loop.body;
         int body_n = darr_size(body->block.statements);
         for (int i = 0; i < body_n; i++) {
-            struct ast_node ** child = darr_get(body->block.statements, i);
-            ir_prog_generate_rec(*child,
+            struct ast_node * child = darr_get(body->block.statements, i);
+            ir_prog_generate_rec(child,
                                  &subblock_unit.block,
                                  subscope,
                                  lineno,
@@ -455,6 +458,7 @@ ir_prog_generate_rec(struct ast_node * node,
         /* add
          * condition part
          */
+        // segfaulting here.
         int condition_label_indx = ir_prog_add_cond_goto(node->while_loop.condition,
                                                          lineno,
                                                          label,
@@ -464,20 +468,23 @@ ir_prog_generate_rec(struct ast_node * node,
                                                          &(subblock_unit.block));
         // now we collect the block pointers
         struct ir_unit * goto_label_ref = darr_get(block->units, goto_label_indx);
-        struct ir_unit * block_label_ref  = darr_get(block->units, block_label_indx);
-        struct ir_unit * cond_label_ref = darr_get(block->units, condition_label_indx);
+        struct ir_unit * block_label_ref  = darr_get(subblock_unit.block.units, block_label_indx);
+        struct ir_unit * cond_label_ref = darr_get(subblock_unit.block.units, condition_label_indx);
 
         // goto condition: -> condition_block
-        darr_push_back(goto_label_ref->succ, cond_label_ref);
-        darr_push_back(cond_label_ref->pred, goto_label_ref);
+        darr_push_back(goto_label_ref->succ, &cond_label_ref);
+        darr_push_back(cond_label_ref->pred, &goto_label_ref);
 
         // sub_block -> condition_block  (loop back edge)
-        darr_push_back(block_label_ref->succ,  cond_label_ref);
-        darr_push_back(cond_label_ref->pred, block_label_ref);
+        darr_push_back(block_label_ref->succ,  &cond_label_ref);
+        darr_push_back(cond_label_ref->pred, &block_label_ref);
 
         // condition_block -> sub_block  (true branch)
-        darr_push_back(cond_label_ref->succ, block_label_ref);
-        darr_push_back(block_label_ref->pred,  cond_label_ref);
+        darr_push_back(cond_label_ref->succ, &block_label_ref);
+        darr_push_back(block_label_ref->pred,  &cond_label_ref);
+
+        // attach the loop's sub-block to the enclosing block
+        darr_push_back(block->units, &subblock_unit);
 
         return NULL;
     }

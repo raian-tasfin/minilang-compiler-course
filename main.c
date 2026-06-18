@@ -104,13 +104,13 @@ int main(int argc, char * const * argv)
    /****************
     * IR Reporting *
     ****************/
-   /* ir_ctx = ir_ctx_init(&cliopts); */
-   /* if (ir_ctx.err) { */
-       /* exit_status = EXIT_FAILURE; */
-       /* goto destruct; */
-   /* } */
-   /* ir_print(&ir_ctx, ir_program.root_unit); */
-   /* ir_cfg_analysis(&ir_program); */
+   ir_ctx = ir_ctx_init(&cliopts);
+   if (ir_ctx.err) {
+       exit_status = EXIT_FAILURE;
+       goto destruct;
+   }
+   ir_print(&ir_ctx, ir_program.root_unit);
+   ir_cfg_analysis(&ir_program);
    /*  /\******************* */
    /*   * Code Generation * */
    /*   *******************\/ */
