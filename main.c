@@ -99,17 +99,18 @@ int main(int argc, char * const * argv)
    /*******************************
     * Intermediate Representation *
     *******************************/
-    struct ir_unit * ir_program = ir_prog_generate(ast_root, scope);
+    struct ir_prog ir_program = ir_prog_generate(ast_root, scope);
 
    /****************
     * IR Reporting *
     ****************/
-   ir_ctx = ir_ctx_init(&cliopts);
-   if (ir_ctx.err) {
-       exit_status = EXIT_FAILURE;
-       goto destruct;
-   }
-   ir_print(&ir_ctx, ir_program);
+   /* ir_ctx = ir_ctx_init(&cliopts); */
+   /* if (ir_ctx.err) { */
+       /* exit_status = EXIT_FAILURE; */
+       /* goto destruct; */
+   /* } */
+   /* ir_print(&ir_ctx, ir_program.root_unit); */
+   /* ir_cfg_analysis(&ir_program); */
    /*  /\******************* */
    /*   * Code Generation * */
    /*   *******************\/ */

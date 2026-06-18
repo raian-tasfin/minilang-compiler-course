@@ -276,7 +276,7 @@ ir_prog_generate_rec(struct ast_node * node,
                                                    scope,
                                                    lineno,
                                                    label);
-        struct ir_unit unit = ir_unit_stmt_ctr((struct ir_stmt stmt){
+        struct ir_unit unit = ir_unit_stmt_ctr((struct ir_stmt){
                 .type = IR_UNOP_ASSIGNMENT,
                 .lineno = ++(*lineno),
                 .unop_asn = {
@@ -706,113 +706,81 @@ ir_populate_use_def(struct ir_unit * unit, int cnt_symbols)
     unit->use = bitset_ctr(cnt_symbols);
     unit->def = bitset_ctr(cnt_symbols);
     unit->out = bitset_ctr(cnt_symbols);
-    unit->in = bitset_ctr(cnt_symbols);
+    unit->in  = bitset_ctr(cnt_symbols);
 
     switch (unit->stmt.type) {
-    case IR_CONST_ASSIGNMENT: {
+    case IR_CONST_ASSIGNMENT:
         bitset_insert(unit->def, unit->stmt.const_asn.dest->id);
         break;
-    }
-    case IR_BINOP_ASSIGNMENT: {
+    case IR_BINOP_ASSIGNMENT:
         bitset_insert(unit->def, unit->stmt.binop_asn.dest->id);
         bitset_insert(unit->use, unit->stmt.binop_asn.val1->id);
         bitset_insert(unit->use, unit->stmt.binop_asn.val2->id);
         break;
-    }
-    case IR_UNOP_ASSIGNMENT: {
+    case IR_UNOP_ASSIGNMENT:
         bitset_insert(unit->def, unit->stmt.unop_asn.dest->id);
         bitset_insert(unit->use, unit->stmt.unop_asn.val->id);
         break;
-    }
-    case IR_VAR_ASSIGNMENT: {
+    case IR_VAR_ASSIGNMENT:
         bitset_insert(unit->def, unit->stmt.var_asn.dest->id);
         bitset_insert(unit->use, unit->stmt.var_asn.val->id);
         break;
-    }
-    case IR_VAR_DECL: {
+    case IR_VAR_DECL:
         bitset_insert(unit->def, unit->stmt.decl.sym->id);
         break;
-    }
-    case IR_PRINT: {
+    case IR_PRINT:
         bitset_insert(unit->use, unit->stmt.print.val->id);
         break;
-    }
-    case IR_LABEL: { break; }
-    case IR_CJMP: {
+    case IR_LABEL: break;
+    case IR_CJMP:
         bitset_insert(unit->use, unit->stmt.cjmp.cond_symb->id);
         break;
-    }
-    case IR_JMP: { break; }
+    case IR_JMP: break;
     }
 }
+
+/* in[u] = use[u] U (out[u] - def[u])
+ * out[u] must be populated before calling.
+ * Returns true if in[u] changed. */
 static bool
 ir_update_unit_in(struct ir_unit * unit)
 {
-    /* tmp = out − def */
     struct bitset * tmp = bitset_copy(unit->out);
     bitset_difference(tmp, unit->def);
-
-    /* tmp = tmp union use  ->  new_in */
     bitset_union_assign(tmp, unit->use);
 
     bool changed = !bitset_equal(tmp, unit->in);
-
-    /* commit */
     bitset_assign(unit->in, tmp);
     bitset_destroy(tmp);
-
     return changed;
 }
 
+/* out[u] U= in[s] for each successor s.
+ * then recompute in[u]
+ * recurse into IR_BLOCK units (which carry no liveness sets themselves) */
 static bool
 ir_update_in_out(struct ir_unit * unit)
 {
     if (!unit) return false;
 
     if (unit->type == IR_BLOCK) {
-        struct ir_block * blk = &unit->block;
-        int n = darr_size(blk->units);
-        if (n == 0) return false;
         bool changed = false;
+        int n = darr_size(unit->block.units);
         for (int i = 0; i < n; i++) {
-            struct ir_unit * child = darr_get(blk->units, i);
-            if (child->type == IR_BLOCK)
-                changed = ir_update_in_out(child) || changed;
-        }
-        struct ir_stmt * next_stmt = NULL;
-        for (int i = n - 1; i >= 0; i--) {
-            struct ir_unit * child = darr_get(blk->units, i);
-            if (child->type == IR_BLOCK) {
-                next_stmt = NULL;
-                continue;
-            }
-
-            struct ir_stmt * stmt = &child->stmt;
-            if (next_stmt) {
-                bitset_assign(stmt->out, next_stmt->in);
-            } else {
-                /* Seed from CFG successors. */
-                int n_succ = darr_size(blk->succ);
-                for (int s = 0; s < n_succ; s++) {
-                    struct ir_block ** succ_ptr = darr_get(blk->succ, s);
-                    struct ir_block *  succ     = *succ_ptr;
-                    /* Find the first statement in the successor block. */
-                    int succ_n = darr_size(succ->units);
-                    for (int k = 0; k < succ_n; k++) {
-                        struct ir_unit * su = darr_get(succ->units, k);
-                        if (su->type == IR_STMT) {
-                            bitset_union_assign(stmt->out, su->stmt.in);
-                            break;
-                        }
-                    }
-                }
-            }
-            changed = ir_update_stmt_in(stmt) || changed;
-            next_stmt = stmt;
+            struct ir_unit * child = darr_get(unit->block.units, i);
+            changed = ir_update_in_out(child) || changed;
         }
         return changed;
     }
-    return ir_update_stmt_in(&unit->stmt);
+
+    /* recompute out from successors in's */
+    int n_succ = darr_size(unit->succ);
+    for (int s = 0; s < n_succ; s++) {
+        struct ir_unit ** succ = darr_get(unit->succ, s);
+        bitset_union_assign(unit->out, (*succ)->in);
+    }
+
+    return ir_update_unit_in(unit);
 }
 
 void
