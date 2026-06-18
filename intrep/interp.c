@@ -790,11 +790,48 @@ ir_update_in_out(struct ir_unit * unit)
     return ir_update_unit_in(unit);
 }
 
+/* Collect all IR_STMT units in program order into a flat array */
+static void
+ir_collect_stmts(struct ir_unit * unit, struct darr * stmts)
+{
+    if (!unit) return;
+    if (unit->type == IR_BLOCK) {
+        int n = darr_size(unit->block.units);
+        for (int i = 0; i < n; i++) {
+            struct ir_unit * child = darr_get(unit->block.units, i);
+            ir_collect_stmts(child, stmts);
+        }
+        return;
+    }
+    darr_push_back(stmts, &unit);
+}
+
+/* Add fall-through edges between consecutive statements that don't
+ * already have an explicit successor (i.e. are not unconditional jumps).
+ * IR_JMP already has its successor set; everything else falls through. */
+static void
+ir_add_fallthrough_edges(struct ir_unit * root)
+{
+    struct darr * stmts = darr_init(sizeof(struct ir_unit *));
+    ir_collect_stmts(root, stmts);
+    int n = darr_size(stmts);
+    for (int i = 0; i < n - 1; i++) {
+        struct ir_unit * cur  = *(struct ir_unit **)darr_get(stmts, i);
+        struct ir_unit * next = *(struct ir_unit **)darr_get(stmts, i + 1);
+        /* IR_JMP always transfers control away; don't add a fall-through */
+        if (cur->stmt.type == IR_JMP) continue;
+        darr_push_back(cur->succ,  &next);
+        darr_push_back(next->pred, &cur);
+    }
+    darr_destroy(&stmts);
+}
+
 void
 ir_cfg_analysis(struct ir_prog * prog)
 {
     if (!prog) return;
     ir_populate_use_def(prog->root_unit, prog->cnt_lines);
+    ir_add_fallthrough_edges(prog->root_unit);
     while (ir_update_in_out(prog->root_unit))
         ;
 }

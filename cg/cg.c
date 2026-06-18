@@ -257,7 +257,7 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
         /* add cjmp */
         union vm_instr_view cjmp = {
             .cjmp = {
-                .op = VM_JMP,
+                .op = VM_CJMP,
                 .loc_reg = reg,
                 .cond_reg = *(int*)darr_get(ctx->reg_of_sym, unit->stmt.cjmp.cond_symb->id),
             },
@@ -266,6 +266,7 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
         break;
     }
     }
+    cg_ir_register_free_pass(ctx, *unit);
     return true;
 }
 
@@ -409,10 +410,10 @@ cg_ir_register_free_pass(struct cg_ctx * ctx, struct ir_unit unit)
 {
     int none = -1;
     for (int sym = 0; sym < ctx->cnt_sym; sym++) {
-        if (!bitset_contains(unit.out, sym)) {
-            int r = *(int*)darr_get(ctx->reg_of_sym, sym);
-            darr_set(ctx->reg_of_sym, sym, &none);
-            ctx->sym_at_reg[r] = none;
-        }
+        if (bitset_contains(unit.out, sym)) continue;
+        int r = *(int*)darr_get(ctx->reg_of_sym, sym);
+        if (r == none) continue;
+        darr_set(ctx->reg_of_sym, sym, &none);
+        ctx->sym_at_reg[r] = none;
     }
 }
