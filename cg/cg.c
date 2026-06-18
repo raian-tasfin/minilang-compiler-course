@@ -106,6 +106,18 @@ cg_generate_code(struct cg_ctx * ctx)
     if (!ctx) goto error;
     if (!(program = darr_init(sizeof(union vm_instr_view)))) goto error;
     if (!cg_generate_code_rec(ctx, ctx->ir_prog->root_unit, program)) goto error;
+
+    /* Second pass: each entry in jump_pos is the program index of a raw
+     * label-id placeholder. The placeholder value is the symbol ID of the
+     * label, which indexes into label_pos to get the resolved instruction
+     * address. Patch every placeholder in-place. */
+    for (int i = 0; i < darr_size(ctx->jump_pos); i++) {
+        int placeholder_idx = *(int*)darr_get(ctx->jump_pos, i);
+        int label_sym_id    = ((union vm_instr_view*)darr_get(program, placeholder_idx))->raw;
+        int target_pc       = *(int*)darr_get(ctx->label_pos, label_sym_id);
+        union vm_instr_view patched = { .raw = target_pc };
+        darr_set(program, placeholder_idx, &patched);
+    }
     union vm_instr_view exit_view = {
         .base = {
             .op = VM_EXIT
@@ -200,7 +212,7 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
         union vm_instr_view mov_view = {
             .mov = {
                 .op = VM_MOV,
-                .dest = label_id,
+                .dest = reg,
                 .flag = VM_MOV_CONST_TO_REG,
             }
         };
@@ -231,14 +243,15 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
         union vm_instr_view mov_view = {
             .mov = {
                 .op = VM_MOV,
-                .dest = label_id,
+                .dest = reg,
                 .flag = VM_MOV_CONST_TO_REG,
             }
         };
         if (!darr_push_back(program, &mov_view)) return false;
         union vm_instr_view label_val = { .raw = label_id, };
         if (!darr_push_back(program, &label_val)) return false;
-        if (!darr_set(ctx->jump_pos, darr_size(program) - 1, &label_id)) return false;
+        int cjmp_indx = darr_size(program) - 1;
+        if (!darr_push_back(ctx->jump_pos, &cjmp_indx)) return false;
 
         /* add cjmp */
         union vm_instr_view cjmp = {
