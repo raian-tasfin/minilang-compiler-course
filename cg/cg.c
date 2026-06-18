@@ -1,16 +1,41 @@
 #include "cg.h"
 #include "../vm/vm-core/vm-core.h"
 #include "../vm/vm-core/vm-definitions.h"
-#include <errno.h>
+#include <locale.h>
 
 
 /**************
  * Structures *
  **************/
 struct cg_ctx {
-    struct darr * reg_of_sym; // register. int. (-1 means unassigned)
-    int           sym_at_reg[VM_REGISTER_CNT];
-    struct ir_unit * root_unit;
+    struct darr * reg_of_sym; // int. register. int. (-1 means unassigned)
+
+    /* Label line does not produce an instruction. Instead we record
+     * the  index of the instruction immediately produced by the line
+     * after the label in the ir form.
+     */
+    struct darr * label_pos;  // int. position of label
+
+    /* Before a jump we generate a const to register move instruction
+     * to store the jump location. Such a mov instruction takes two
+     * units, one for the instruction and one for the raw value.
+     *
+     * In the first pass we generate
+     *     mov reg label_id
+     *     jmp reg / cjmp cond_reg reg
+     * In the jump pos array we store the location of the label_id
+     * value of the produced mov instruction.
+     *
+     * In the second pass we read raw values from the indices of
+     * jump_pos. Those values are the indices of labels. We replace
+     * those with the actual line numbers pointed to by the labels.
+     */
+    struct darr * jump_pos;   // int. position of jump statements
+
+    int cnt_sym;
+
+    int sym_at_reg[VM_REGISTER_CNT];
+    struct ir_prog * ir_prog;
 };
 
 
@@ -18,19 +43,17 @@ struct cg_ctx {
 /************************
  * Forward Declarations *
  ************************/
-static struct darr *
-cg_get_last_use(struct ir_unit * unit);
-
-bool cg_get_last_use_rec(struct darr * luse, struct ir_unit * unit);
-bool cg_update_last_use(struct darr * luse, int id, int lineno, int none);
 bool cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * program);
-int  cg_alloc_register_sym(struct cg_ctx * ctx, int symid, int lineno);
 
 union vm_instr_view cg_generate_const_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
 union vm_instr_view cg_generate_var_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
 union vm_instr_view cg_generate_binop_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
 union vm_instr_view cg_generate_unop_asn(struct cg_ctx * ctx, struct ir_stmt stmt);
 union vm_instr_view cg_generate_prnt_asn( struct cg_ctx * ctx, struct ir_stmt stmt);
+
+
+bool cg_ir_register_alloc_pass(struct cg_ctx * ctx, struct ir_unit unit);
+void cg_ir_register_free_pass(struct cg_ctx * ctx, struct ir_unit unit);
 
 int cg_scalar_to_int(struct ir_scalar scalar);
 
@@ -41,37 +64,36 @@ enum vm_op cg_ir_to_vm_unop(enum ir_unop op);
  * Implmentations *
  ******************/
 struct cg_ctx *
-cg_ctx_init(struct ir_unit * root_unit)
+cg_ctx_init(struct ir_prog * ir_prog, int cnt_sym)
 {
     struct cg_ctx * ctx = NULL;
     struct darr * luse = NULL;
     int none = -1;
 
-    // Ensure root ir unit
-    if (!root_unit) return NULL;
+    // Ensure valid program
+    if (!ir_prog || !ir_prog->root_unit) return NULL;
 
     // Allocate context
     if (!(ctx = malloc(sizeof(struct cg_ctx)))) goto error;
 
-    // get last use
-    ctx->last_use = darr_init(sizeof(int));
-    if (!(ctx->last_use = cg_get_last_use(root_unit))) goto error;
-
-    // allocate reg_of_sym
+    // initialize context
     if (!(ctx->reg_of_sym = darr_init(sizeof(int)))) goto error;
-    if (!(darr_resize(ctx->reg_of_sym, darr_size(ctx->last_use), &none))) goto error;
+    darr_ensure_index(ctx->reg_of_sym, cnt_sym, &none);
 
-    // fill sym_at_reg
-    for (int i = 0; i < VM_REGISTER_CNT; i++) ctx->sym_at_reg[i] = -1;
+    if (!(ctx->label_pos = darr_init(sizeof(int)))) goto error;
+    darr_ensure_index(ctx->label_pos, cnt_sym, &none);
 
-    // add root unit to context
-    ctx->root_unit = root_unit;
+    if (!(ctx->jump_pos = darr_init(sizeof(int)))) goto error;
+
+    ctx->cnt_sym = cnt_sym;
+
+    for (int r = 0; r < VM_REGISTER_CNT; r++) ctx->sym_at_reg[r] = none;
+    ir_prog = ir_prog;
 
     return ctx;
 
 error:
     cg_ctx_destroy(&ctx);
-    darr_destroy(&luse);
     return NULL;
 }
 
@@ -83,7 +105,7 @@ cg_generate_code(struct cg_ctx * ctx)
 
     if (!ctx) goto error;
     if (!(program = darr_init(sizeof(union vm_instr_view)))) goto error;
-    if (!cg_generate_code_rec(ctx, ctx->root_unit, program)) goto error;
+    if (!cg_generate_code_rec(ctx, ctx->ir_prog->root_unit, program)) goto error;
 
     union vm_instr_view exit_view = {
         .base = {
@@ -105,74 +127,10 @@ void
 cg_ctx_destroy(struct cg_ctx ** ctx)
 {
     if (!ctx || !*ctx) return;
-    darr_destroy(&(*ctx)->last_use);
     darr_destroy(&(*ctx)->reg_of_sym);
+    darr_destroy(&(*ctx)->label_pos);
+    darr_destroy(&(*ctx)->jump_pos);
 }
-
-
-static struct darr *
-cg_get_last_use(struct ir_unit * unit)
-{
-    struct darr * luse = NULL;
-
-    if (!unit) goto error;
-    if (!(luse = darr_init(sizeof(int)))) goto error;
-    if (!cg_get_last_use_rec(luse, unit)) goto error;
-    return luse;
-
- error:
-    darr_destroy(&luse);
-    return NULL;
-}
-
-
-bool
-cg_get_last_use_rec(struct darr * luse, struct ir_unit * unit)
-{
-    int none = -1;
-
-    if (!luse) return false;
-    if (!unit) return false;
-    if (unit->type == IR_BLOCK) {
-        int n = darr_size(unit->block);
-        for (int i = 0; i < n; i++) {
-            struct ir_unit * subunit= darr_get(unit->block, i);
-            if (!cg_get_last_use_rec(luse, subunit)) return false;
-        }
-        return true;
-    }
-
-    switch (unit->stmt.type) {
-    case IR_CONST_ASSIGNMENT: /* no read */ return true;
-    case IR_BINOP_ASSIGNMENT: {
-        if (!(cg_update_last_use(luse, unit->stmt.binop_asn.val1->id, unit->stmt.lineno, none))) return false;
-        if (!(cg_update_last_use(luse, unit->stmt.binop_asn.val2->id, unit->stmt.lineno, none))) return false;
-        return true;
-    }
-    case IR_UNOP_ASSIGNMENT: {
-        if (!(cg_update_last_use(luse, unit->stmt.unop_asn.val->id, unit->stmt.lineno, none))) return false;
-        return true;
-    }
-    case IR_PRINT:
-        if (!(cg_update_last_use(luse, unit->stmt.print.val->id, unit->stmt.lineno, none))) return false;
-        return true;
-    case IR_VAR_ASSIGNMENT: {
-        if (!(cg_update_last_use(luse, unit->stmt.var_asn.val->id, unit->stmt.lineno, none))) return false;
-        return true;
-    }
-    case IR_VAR_DECL: /* no read */ return true;
-    }
-}
-
-
-bool
-cg_update_last_use(struct darr * luse, int id, int lineno, int none)
-{
-    if (!darr_ensure_index(luse, id, &none)) return false;
-    if (!darr_set(luse, id, &lineno)) return false;
-    return true;
-}
-
 
 
 bool
@@ -182,13 +140,15 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
     if (!program) return false;
 
     if (unit->type == IR_BLOCK) {
-        int n = darr_size(unit->block);
+        int n = darr_size(unit->block.units);
         for (int i = 0; i < n; i++) {
-            struct ir_unit * subunit = darr_get(unit->block, i);
+            struct ir_unit * subunit = darr_get(unit->block.units, i);
             if (!cg_generate_code_rec(ctx, subunit, program)) return false;
         }
         return true;
     }
+
+    if (!cg_ir_register_alloc_pass(ctx, *unit)) return false;
 
     switch (unit->stmt.type) {
     case IR_CONST_ASSIGNMENT: {
@@ -197,27 +157,27 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
 
         union vm_instr_view const_view = { .raw = cg_scalar_to_int(unit->stmt.const_asn.scalar) };
         if (!darr_push_back(program, &const_view)) return false;
-        return true;
+        break;
     }
     case IR_BINOP_ASSIGNMENT: {
         union vm_instr_view view = cg_generate_binop_asn(ctx, unit->stmt);
         if (!darr_push_back(program, &view)) return false;
-        return true;
+        break;
     }
     case IR_UNOP_ASSIGNMENT: {
         union vm_instr_view view = cg_generate_unop_asn(ctx, unit->stmt);
         if (!darr_push_back(program, &view)) return false;
-        return true;
+        break;
     }
     case IR_PRINT: {
         union vm_instr_view view = cg_generate_prnt_asn(ctx, unit->stmt);
         if (!darr_push_back(program, &view)) return false;
-        return true;
+        break;
     }
     case IR_VAR_ASSIGNMENT: {
         union vm_instr_view instr_view = cg_generate_var_asn(ctx, unit->stmt);
         if (!darr_push_back(program, &instr_view)) return false;
-        return true;
+        break;
     }
     case IR_VAR_DECL: {
         /* Skip for now.
@@ -226,66 +186,83 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
          * memory at all. But in case we do, this statement will have
          * to assign memory offset to the symbol.
          */
-        return true;
+        break;
+    }
+    case IR_LABEL: {
+        int next_indx = darr_size(program);
+        if (!darr_set(ctx->label_pos, unit->stmt.label.id, &next_indx)) return false;
+        break;
+    }
+    case IR_JMP: {
+        int label_id = unit->stmt.jmp.loc_label;
+        int reg = *(int*)darr_get(ctx->reg_of_sym, reg);
+
+        // add move
+        union vm_instr_view mov_view = {
+            .mov = {
+                .op = VM_MOV,
+                .dest = label_id,
+                .flag = VM_MOV_CONST_TO_REG,
+            }
+        };
+        if (!darr_push_back(program, &mov_view)) return false;
+
+        // add raw value. label id for now
+        union vm_instr_view label_val = { .raw = label_id, };
+        if (!darr_push_back(program, &label_val)) return false;
+
+        // record raw values index
+        if (!darr_set(ctx->jump_pos, darr_size(program) - 1, &label_id)) return false;
+
+        // add jump
+        union vm_instr_view jmp = {
+            .jmp = {
+                .op = VM_JMP,
+                .loc_reg = reg,
+            },
+        };
+        if (!darr_push_back(program, &jmp)) return false;
+        break;
+    }
+    case IR_CJMP: {
+        /* Handle jump label part. similar to jump */
+        int label_id = unit->stmt.cjmp.loc_label;
+        int reg = *(int*)darr_get(ctx->reg_of_sym, reg);
+        union vm_instr_view mov_view = {
+            .mov = {
+                .op = VM_MOV,
+                .dest = label_id,
+                .flag = VM_MOV_CONST_TO_REG,
+            }
+        };
+        if (!darr_push_back(program, &mov_view)) return false;
+        union vm_instr_view label_val = { .raw = label_id, };
+        if (!darr_push_back(program, &label_val)) return false;
+        if (!darr_set(ctx->jump_pos, darr_size(program) - 1, &label_id)) return false;
+
+        /* add cjmp */
+        union vm_instr_view cjmp = {
+            .cjmp = {
+                .op = VM_JMP,
+                .loc_reg = reg,
+                .cond_reg = *(int*)darr_get(ctx->reg_of_sym, unit->stmt.cjmp.cond_symb->id),
+            },
+        };
+        if (!darr_push_back(program, &cjmp)) return false;
+        break;
     }
     }
-    return false;
+    return true;
 }
 
-
-int
-cg_alloc_register_sym(struct cg_ctx * ctx, int symid, int lineno)
-{
-    int none = -1;
-    if (!ctx || symid < 0) return none;
-
-    if (!darr_ensure_index(ctx->reg_of_sym, symid, &none)) return none;
-    if (!darr_ensure_index(ctx->last_use, symid, &none)) return none;
-
-    int reg_of_sym = *(int*)darr_get(ctx->reg_of_sym, symid);
-    if (reg_of_sym != -1) return reg_of_sym;
-
-    for (int r = 0; r < VM_REGISTER_CNT; r++) {
-        int current_sym = ctx->sym_at_reg[r];
-        /* Free Slot */
-        if (current_sym == -1) {
-            ctx->sym_at_reg[r] = symid;
-            darr_set(ctx->reg_of_sym, symid, &r);
-            return r;
-        }
-        /* Stale Register Check */
-        int last_use_line = *(int*)darr_get(ctx->last_use, current_sym);
-        if (last_use_line < lineno) {
-            darr_set(ctx->reg_of_sym, current_sym, &none);
-            ctx->sym_at_reg[r] = symid;
-            darr_set(ctx->reg_of_sym, symid, &r);
-            return r;
-        }
-    }
-    return none;
-}
-
-
-union vm_instr_view
-cg_generate_const_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
-{
-    union vm_instr_view view = {
-        .mov = {
-            .dest = cg_alloc_register_sym(ctx, stmt.const_asn.dest->id, stmt.lineno),
-            .flag = VM_MOV_CONST_TO_REG,
-            .op   = VM_MOV,
-        }
-    };
-    return view;
-}
 
 union vm_instr_view
 cg_generate_var_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
 {
     union vm_instr_view view = {
         .mov = {
-            .dest = cg_alloc_register_sym(ctx, stmt.var_asn.dest->id, stmt.lineno),
-            .src  = cg_alloc_register_sym(ctx, stmt.var_asn.val->id, stmt.lineno),
+            .dest = *(int*)darr_get(ctx->reg_of_sym, stmt.var_asn.dest->id),
+            .src  = *(int*)darr_get(ctx->reg_of_sym, stmt.var_asn.val->id),
             .op   = VM_MOV,
             .flag = VM_MOV_REG_TO_REG,
         }
@@ -299,9 +276,9 @@ cg_generate_binop_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
     union vm_instr_view view = {
         .bin = {
             .op   = cg_ir_to_vm_binop(stmt.binop_asn.op),
-            .dest = cg_alloc_register_sym(ctx, stmt.binop_asn.dest->id, stmt.lineno),
-            .arg1 = cg_alloc_register_sym(ctx, stmt.binop_asn.val1->id, stmt.lineno),
-            .arg2 = cg_alloc_register_sym(ctx, stmt.binop_asn.val2->id, stmt.lineno),
+            .dest = *(int*)darr_get(ctx->reg_of_sym, stmt.binop_asn.dest->id),
+            .arg1 = *(int*)darr_get(ctx->reg_of_sym, stmt.binop_asn.val1->id),
+            .arg2 = *(int*)darr_get(ctx->reg_of_sym, stmt.binop_asn.val2->id),
         }
     };
     return view;;
@@ -313,8 +290,8 @@ cg_generate_unop_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
     union vm_instr_view view = {
         .un = {
             .op   = cg_ir_to_vm_unop(stmt.unop_asn.op),
-            .dest = cg_alloc_register_sym(ctx, stmt.unop_asn.dest->id, stmt.lineno),
-            .arg = cg_alloc_register_sym(ctx, stmt.unop_asn.val->id, stmt.lineno),
+            .dest = *(int*)darr_get(ctx->reg_of_sym, stmt.unop_asn.dest->id),
+            .arg = *(int*)darr_get(ctx->reg_of_sym, stmt.unop_asn.val->id),
         }
     };
     return view;;
@@ -330,7 +307,7 @@ cg_generate_prnt_asn( struct cg_ctx * ctx, struct ir_stmt stmt)
         .print = {
             .op = VM_PRNT,
             .flags = flags,
-            .reg = cg_alloc_register_sym(ctx, stmt.print.val->id, stmt.lineno)
+            .reg = *(int*)darr_get(ctx->reg_of_sym, stmt.print.val->id),
         }
     };
     return view;
@@ -375,5 +352,38 @@ cg_ir_to_vm_unop(enum ir_unop op)
     switch (op) {
     case IR_NEG: return VM_NEG;
     case IR_NOT: return VM_NOT;
+    }
+}
+
+
+bool
+cg_ir_register_alloc_pass(struct cg_ctx * ctx, struct ir_unit unit)
+{
+    int none = -1;
+    for (int sym = 0; sym < ctx->cnt_sym; sym++) {
+        if (!bitset_contains(unit.def, sym)) continue;
+        bool found = false;
+        for (int r = 0; r < VM_REGISTER_CNT; r++) {
+            if (ctx->sym_at_reg[r] != none) continue;
+            ctx->sym_at_reg[r] = sym;
+            if (!darr_set(ctx->reg_of_sym, sym, &r)) return false;
+            found = true;
+            break;
+        }
+        if (!found) return false;
+    }
+    return true;
+}
+
+void
+cg_ir_register_free_pass(struct cg_ctx * ctx, struct ir_unit unit)
+{
+    int none = -1;
+    for (int sym = 0; sym < ctx->cnt_sym; sym++) {
+        if (!bitset_contains(unit.out, sym)) {
+            int r = *(int*)darr_get(ctx->reg_of_sym, sym);
+            darr_set(ctx->reg_of_sym, sym, &none);
+            ctx->sym_at_reg[r] = none;
+        }
     }
 }
