@@ -104,6 +104,14 @@ DARR_DIR = darr
 DARR_C = $(DARR_DIR)/darr.c
 DARR_H = $(DARR_DIR)/darr.h
 
+##########
+# Bitset #
+##########
+BITSET_DIR = bitset
+BITSET_C = $(BITSET_DIR)/bitset.c
+BITSET_H = $(BITSET_DIR)/bitset.h
+
+
 
 ###########
 # Boolean #
@@ -136,6 +144,7 @@ SRCS_C += $(IR_C)
 # SRCS_C += $(CG_C)
 SRCS_C += $(SYM_C)
 SRCS_C += $(SCALAR_C)
+SRCS_C += $(BITSET_C)
 
 OBJS   = $(SRCS_C:%.c=%.o)
 
@@ -184,7 +193,7 @@ $(SEMAN_C): $(SEMAN_H)
 $(SRCBUF_C): $(SRCBUF_H)
 $(SYM_C): $(SYM_H)
 $(SCALAR_C): $(SCALAR_H)
-
+$(BITSET_C): $(BITSET_H)
 
 clean:
 	$(RM) $(LEXER_C)

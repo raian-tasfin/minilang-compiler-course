@@ -72,16 +72,41 @@ ir_unopch(enum ir_unop op)
 /****************
  * Constructors *
  ****************/
+static struct ir_unit
+ir_unit_ctr(enum ir_unit_type type)
+{
+    struct ir_unit unit = {
+        .type = type,
+        .pred = darr_init(sizeof(struct ir_unit)),
+        .succ = darr_init(sizeof(struct ir_unit)),
+    };
+    return unit;
+}
+
 static struct ir_block
 ir_block_ctr(void)
 {
-    struct ir_block block = {
+    return (struct ir_block){
         .units = darr_init(sizeof(struct ir_unit)),
-        .pred  = darr_init(sizeof(struct ir_block *)),
-        .succ  = darr_init(sizeof(struct ir_block *)),
     };
-    return block;
 }
+
+static struct ir_unit
+ir_unit_block_ctr(void)
+{
+    struct ir_unit unit = ir_unit_ctr(IR_BLOCK);
+    unit.block = ir_block_ctr();
+    return unit;
+}
+
+static struct ir_unit
+ir_unit_stmt_ctr(struct ir_stmt stmt)
+{
+    struct ir_unit unit = ir_unit_ctr(IR_STMT);
+    unit.stmt = stmt;
+    return unit;
+}
+
 /****************
  * IR Generator *
  ****************/
@@ -93,84 +118,62 @@ ir_prog_generate_rec(struct ast_node * node,
                      int * label);
 
 
-// generate goto label statement block.
-static struct ir_unit
-ir_prog_generate_goto(int * lineno, int label_id)
+// add goto label: unit and return the index
+static int
+ir_prog_add_goto(int * lineno, int label_id, struct ir_block * block)
 {
-    // create the block
-    struct ir_unit block_unit = {
-        .type = IR_BLOCK,
-        .block = ir_block_ctr(),
-    };
-    // create the statement
-    struct ir_unit goto_cond_unit = {
-        .type = IR_STMT,
-        .stmt = {
+    // create statement
+    struct ir_unit unit = ir_unit_stmt_ctr((struct ir_stmt){
             .type = IR_JMP,
             .lineno = ++(*lineno),
             .jmp = { .loc_label = label_id, },
-        },
-    };
-    // insert the statement in the wrapper
-    darr_push_back(block_unit.block.units, &goto_cond_unit);
-    return block_unit;
+        });
+    // push to block
+    darr_push_back(block->units, &unit);
+    // return index
+    return darr_size(block->units) - 1;
 }
 
-// generate conditional goto label statement block.
-static struct ir_unit
-ir_prog_generate_cond_goto(struct ast_node * condition,
-                           int * lineno,
-                           int * label,
-                           struct sym_scope * parent_scope,
-                           int condition_label_id,
-                           int jump_label_id)
+// add conditional jump to block and return the index.
+static int
+ir_prog_add_cond_goto(struct ast_node * condition,
+                      int * lineno,
+                      int * label,
+                      struct sym_scope * scope,
+                      int condition_label_id,
+                      int jump_label_id,
+                      struct ir_block * block)
 {
-    /* separate block */
-    struct ir_unit block = {
-        .type = IR_BLOCK,
-        .block = ir_block_ctr(),
-    };
-    /* seperate sub scope */
-    struct sym_scope * scope = sym_scope_new(parent_scope);
-
-    /* condition label statement */
-    // construct
-    struct ir_unit condition_label = {
-        .type = IR_STMT,
-        .stmt = {
+    struct ir_unit condition_label = ir_unit_stmt_ctr((struct ir_stmt){
             .type = IR_LABEL,
             .lineno = ++(*lineno),
             .label = { .id = condition_label_id, },
-        },
-    };
+        });
     // push
-    darr_push_back(block.block.units, &condition_label);
+    darr_push_back(block->units, &condition_label);
+    int res = darr_size(block->units) - 1;
 
     /* condition calculation */
     // recursively add calculation here
     struct symbol * cond_symb =
-        ir_prog_generate_rec(condition,
-                             &block.block,
+        ir_prog_generate_rec(condition->while_loop.condition,
+                             block,
                              scope,
                              lineno,
                              label);
 
     /* if condition goto block */
     // construct
-    struct ir_unit cjmp = {
-        .type = IR_STMT,
-        .stmt = {
-            .type = IR_CJMP,
-            .lineno = ++(*lineno),
-            .cjmp = {
-                .cond_symb = cond_symb,
-                .loc_label = jump_label_id,
-            },
-        },
-    };
-    darr_push_back(block.block.units, &cjmp);
-
-    return block;
+    struct ir_unit cjmp = ir_unit_stmt_ctr((struct ir_stmt){
+                .type = IR_CJMP,
+                .lineno = ++(*lineno),
+                .cjmp = {
+                    .cond_symb = cond_symb,
+                    .loc_label = jump_label_id,
+                },
+            });
+    darr_push_back(block->units, &cjmp);
+    return res;
 }
 
 static struct symbol *
@@ -198,18 +201,14 @@ ir_prog_generate_rec(struct ast_node * node,
                                        node->scalar.type);
 
         // tmp_i = scalar value
-        struct ir_unit unit = {
-            .type = IR_STMT,
-            .stmt = {
+        struct ir_unit unit = ir_unit_stmt_ctr((struct ir_stmt){
                 .type = IR_CONST_ASSIGNMENT,
                 .lineno = ++(*lineno),
                 .const_asn = {
                     .dest = dest,
                     .scalar = scalar,
                 }
-            }
-        };
-
+            });
         darr_push_back(block->units, &unit);
         return dest;
     }
@@ -249,9 +248,8 @@ ir_prog_generate_rec(struct ast_node * node,
                                                     scope,
                                                     lineno,
                                                     label);
-        struct ir_unit unit = {
-            .type = IR_STMT,
-            .stmt = {
+
+        struct ir_unit unit = ir_unit_stmt_ctr((struct ir_stmt){
                 .type = IR_BINOP_ASSIGNMENT,
                 .lineno = ++(*lineno),
                 .binop_asn = {
@@ -260,8 +258,7 @@ ir_prog_generate_rec(struct ast_node * node,
                     .val1 = val1,
                     .val2 = val2,
                 }
-            },
-        };
+            });
 
         darr_push_back(block->units, &unit);
         return dest;
@@ -279,9 +276,7 @@ ir_prog_generate_rec(struct ast_node * node,
                                                    scope,
                                                    lineno,
                                                    label);
-        struct ir_unit unit = {
-            .type = IR_STMT,
-            .stmt = {
+        struct ir_unit unit = ir_unit_stmt_ctr((struct ir_stmt stmt){
                 .type = IR_UNOP_ASSIGNMENT,
                 .lineno = ++(*lineno),
                 .unop_asn = {
@@ -289,8 +284,7 @@ ir_prog_generate_rec(struct ast_node * node,
                     .dest = dest,
                     .val  = val,
                 }
-            },
-        };
+            });
         darr_push_back(block->units, &unit);
         return dest;
     }
@@ -300,40 +294,34 @@ ir_prog_generate_rec(struct ast_node * node,
                                                    scope,
                                                    lineno,
                                                    label);
-        struct ir_unit unit = {
-            .type = IR_STMT,
-            .stmt = {
+        struct ir_unit unit = ir_unit_stmt_ctr((struct ir_stmt){
                 .type = IR_PRINT,
                 .lineno = ++(*lineno),
                 .print = {
                     .val = val
                 },
-            },
-        };
+            });
         darr_push_back(block->units, &unit);
         return NULL;
     }
     case AST_BLOCK: {
-        /* generate new sub-block and attack a sub-scope to it */
-        struct ir_block sub_block = ir_block_ctr();
+        /* generate new sub-block and attach a sub-scope to it */
+        struct ir_unit sub_block_unit = ir_unit_block_ctr();
         struct sym_scope * sub_scope = sym_scope_new(scope);
 
+        /* add subnodes */
         int n = darr_size(node->block.statements);
         for (int i = 0; i < n; i++) {
             struct ast_node ** subnode = darr_get(node->block.statements, i);
             ir_prog_generate_rec(*subnode,
-                                 &sub_block,
+                                 &(sub_block_unit.block),
                                  sub_scope,
                                  lineno,
                                  label);
         }
 
-        // now we push that new block to the program
-        struct ir_unit unit_block = {
-            .type = IR_BLOCK,
-            .block = sub_block,
-        };
-        darr_push_back(block->units, &unit_block);
+        /* now we push that new block to the program */
+        darr_push_back(block->units, &sub_block_unit);
         return NULL;
     }
     case AST_PUNCTUATOR: {
@@ -347,30 +335,24 @@ ir_prog_generate_rec(struct ast_node * node,
                                                    lineno,
                                                    label);
         // statement
-        struct ir_unit unit = {
-            .type = IR_STMT,
-            .stmt = {
+        struct ir_unit unit = ir_unit_stmt_ctr((struct ir_stmt){
                 .type = IR_VAR_ASSIGNMENT,
                 .lineno = ++(*lineno),
                 .var_asn = {
                     .dest = node->asn.sym,
                     .val = rhs,
                 }
-            }
-        };
+        });
         darr_push_back(block->units, &unit);
         return node->asn.sym;
     };
     case AST_DECLARATION: {
         /* Push declaration */
-        struct ir_unit unit = {
-            .type = IR_STMT,
-            .stmt = {
+        struct ir_unit unit = ir_unit_stmt_ctr((struct ir_stmt){
                 .type = IR_VAR_DECL,
                 .lineno = ++(*lineno),
                 .decl = { .sym = node->decl.sym }
-            }
-        };
+        });
         darr_push_back(block->units, &unit);
 
         /* Push assignment
@@ -378,17 +360,14 @@ ir_prog_generate_rec(struct ast_node * node,
          * var assignment otherwise
          */
         if (!node->decl.rhs) {
-            struct ir_unit unit = {
-                .type = IR_STMT,
-                .stmt = {
+            struct ir_unit unit = ir_unit_stmt_ctr((struct ir_stmt){
                     .type = IR_CONST_ASSIGNMENT,
                     .lineno = ++(*lineno),
                     .const_asn = {
                         .dest = sym_new(scope, NULL, node->decl.type),
                         .scalar = { .type = node->decl.type, }
                     }
-                }
-            };
+                });
             switch (node->decl.type) {
             case SCAL_BOOLEAN: unit.stmt.const_asn.scalar.boolean = false; break;
             case SCAL_INTEGER: unit.stmt.const_asn.scalar.integer = 0; break;
@@ -401,17 +380,14 @@ ir_prog_generate_rec(struct ast_node * node,
                                      scope,
                                      lineno,
                                      label);
-            struct ir_unit unit = {
-                .type = IR_STMT,
-                .stmt = {
+            struct ir_unit unit = ir_unit_stmt_ctr((struct ir_stmt){
                     .type = IR_VAR_ASSIGNMENT,
                     .lineno = ++(*lineno),
                     .var_asn = {
                         .dest = node->decl.sym,
                         .val = rhs,
                     }
-                }
-            };
+                });
             darr_push_back(block->units, &unit);
         }
         return node->decl.sym;
@@ -422,100 +398,86 @@ ir_prog_generate_rec(struct ast_node * node,
     case AST_WHILE_LOOP: {
         /* Structure
          * ==============
-         * We construct CFG as we go. So here each of the following
-         * three are seperate blocks.  Those blocks are pushed at
-         * current root block.
-         *
+         * We construct CFG as we go. The entire loop thing is in one
+         * seperate block because this part needs to have a seperate
+         * sub-scope
          * -----------------
          * goto condition
          * -----------------
          * block:
          * ....
-         * -----------------
          * block:
          * condition: if condition goto block
          * -----------------
          */
 
+        // create sub-block and sub-scope
+        struct ir_unit subblock_unit = ir_unit_block_ctr();
+        struct sym_scope * subscope = sym_scope_new(scope);
+
+        // calculate label ids
         int block_label_id = (*label)++;
         int condition_label_id = (*label)++;
 
-        /* goto condition */
-        struct ir_unit goto_cond = ir_prog_generate_goto(lineno, condition_label_id);
+        /* add
+         * goto condition:
+         */
+        int goto_label_indx  = ir_prog_add_goto(lineno,
+                                                condition_label_id,
+                                                block);
 
-
-        /* sub_block includes block label */
-        // construct sub_block
-        struct ir_unit sub_block = {
-            .type = IR_BLOCK,
-            .block = ir_block_ctr(),
-        };
-        // construct label statement
-        struct ir_unit block_label = {
-            .type = IR_STMT,
-            .stmt = {
+        /* add
+         * block:
+         */
+        struct ir_unit block_label = ir_unit_stmt_ctr((struct ir_stmt){
                 .type = IR_LABEL,
                 .lineno = ++(*lineno),
                 .label = { .id = block_label_id, },
-            },
-        };
-        // push block label statement to sub_block
-        darr_push_back(sub_block.block.units, &block_label);
-        // the statements of that body belongs to block_unit
-        // additionally need a new sub-scope
-        struct sym_scope * sub_scope = sym_scope_new(scope);
+            });
+        // push block label unit to sub_block
+        darr_push_back(subblock_unit.block.units, &block_label);
+        int block_label_indx = darr_size(subblock_unit.block.units) - 1;
+
+        /* add
+         * while loop body
+         */
         struct ast_node * body = node->while_loop.body;
         int body_n = darr_size(body->block.statements);
         for (int i = 0; i < body_n; i++) {
             struct ast_node ** child = darr_get(body->block.statements, i);
             ir_prog_generate_rec(*child,
-                                 &sub_block.block,
-                                 sub_scope,
+                                 &subblock_unit.block,
+                                 subscope,
                                  lineno,
                                  label);
         }
 
-        // construct condition label statement unit
-        struct ir_unit condition_block =
-            ir_prog_generate_cond_goto(node->while_loop.condition,
-                                       lineno,
-                                       label,
-                                       scope,
-                                       condition_label_id,
-                                       block_label_id);
-
-        // push goto condition: block to unit
-        darr_push_back(block->units, &goto_cond);
-        // store index for reconnecting later
-        int goto_cond_unit_indx = darr_size(block->units) - 1;
-        // push the sub-block unit to root
-        darr_push_back(block->units, &sub_block);
-        // remember index, will be needed later to attach prev succ.
-        int sub_block_indx = darr_size(block->units) - 1;
-        // push the block to root
-        darr_push_back(block->units, &condition_block);
-        int condition_block_indx = darr_size(block->units) - 1;
-
+        /* add
+         * condition part
+         */
+        int condition_label_indx = ir_prog_add_cond_goto(node->while_loop.condition,
+                                                         lineno,
+                                                         label,
+                                                         subscope,
+                                                         condition_label_id,
+                                                         block_label_id,
+                                                         &(subblock_unit.block));
         // now we collect the block pointers
-        struct ir_unit * goto_block_ref = darr_get(block->units, goto_cond_unit_indx);
-        struct ir_unit * sub_block_ref  = darr_get(block->units, sub_block_indx);
-        struct ir_unit * cond_block_ref = darr_get(block->units, condition_block_indx);
-
-        struct ir_block * goto_blk = &goto_block_ref->block;
-        struct ir_block * sub_blk  = &sub_block_ref->block;
-        struct ir_block * cond_blk = &cond_block_ref->block;
+        struct ir_unit * goto_label_ref = darr_get(block->units, goto_label_indx);
+        struct ir_unit * block_label_ref  = darr_get(block->units, block_label_indx);
+        struct ir_unit * cond_label_ref = darr_get(block->units, condition_label_indx);
 
         // goto condition: -> condition_block
-        darr_push_back(goto_blk->succ, &cond_blk);
-        darr_push_back(cond_blk->pred, &goto_blk);
+        darr_push_back(goto_label_ref->succ, cond_label_ref);
+        darr_push_back(cond_label_ref->pred, goto_label_ref);
 
         // sub_block -> condition_block  (loop back edge)
-        darr_push_back(sub_blk->succ,  &cond_blk);
-        darr_push_back(cond_blk->pred, &sub_blk);
+        darr_push_back(block_label_ref->succ,  cond_label_ref);
+        darr_push_back(cond_label_ref->pred, block_label_ref);
 
         // condition_block -> sub_block  (true branch)
-        darr_push_back(cond_blk->succ, &sub_blk);
-        darr_push_back(sub_blk->pred,  &cond_blk);
+        darr_push_back(cond_label_ref->succ, block_label_ref);
+        darr_push_back(block_label_ref->pred,  cond_label_ref);
 
         return NULL;
     }
@@ -523,19 +485,26 @@ ir_prog_generate_rec(struct ast_node * node,
 }
 
 
-struct ir_unit *
+struct ir_prog
 ir_prog_generate(struct ast_node * node, struct sym_scope * scope)
 {
-    if (!node || !scope) return NULL;
+    if (!node || !scope) {
+        return (struct ir_prog ){
+            .cnt_labels = 0,
+            .cnt_lines = 0,
+            .root_unit = NULL,
+        };
+    }
     struct ir_unit * root_unit = malloc(sizeof(struct ir_unit));
-    *root_unit = (struct ir_unit) {
-        .type = IR_BLOCK,
-        .block = ir_block_ctr(),
-    };
+    *root_unit = ir_unit_block_ctr();
     int lineno = 0;
     int label = 0;
     ir_prog_generate_rec(node, &(root_unit->block), scope, &lineno, &label);
-    return root_unit;
+    return (struct ir_prog) {
+        .root_unit = root_unit,
+        .cnt_labels = label,
+        .cnt_lines = lineno,
+    };
 }
 
 
@@ -720,4 +689,137 @@ ir_ctx_destroy(struct ir_ctx * ctx)
         && ctx->rprt != stdin
         && ctx->rprt != stderr)
         fclose(ctx->rprt);
+}
+
+static void
+ir_populate_use_def(struct ir_unit * unit, int cnt_symbols)
+{
+    if (!unit) return;
+    if (unit->type == IR_BLOCK) {
+        int n = darr_size(unit->block.units);
+        for (int i = 0; i < n; i++) {
+            struct ir_unit * child = darr_get(unit->block.units, i);
+            ir_populate_use_def(child, cnt_symbols);
+        }
+        return;
+    }
+    unit->use = bitset_ctr(cnt_symbols);
+    unit->def = bitset_ctr(cnt_symbols);
+    unit->out = bitset_ctr(cnt_symbols);
+    unit->in = bitset_ctr(cnt_symbols);
+
+    switch (unit->stmt.type) {
+    case IR_CONST_ASSIGNMENT: {
+        bitset_insert(unit->def, unit->stmt.const_asn.dest->id);
+        break;
+    }
+    case IR_BINOP_ASSIGNMENT: {
+        bitset_insert(unit->def, unit->stmt.binop_asn.dest->id);
+        bitset_insert(unit->use, unit->stmt.binop_asn.val1->id);
+        bitset_insert(unit->use, unit->stmt.binop_asn.val2->id);
+        break;
+    }
+    case IR_UNOP_ASSIGNMENT: {
+        bitset_insert(unit->def, unit->stmt.unop_asn.dest->id);
+        bitset_insert(unit->use, unit->stmt.unop_asn.val->id);
+        break;
+    }
+    case IR_VAR_ASSIGNMENT: {
+        bitset_insert(unit->def, unit->stmt.var_asn.dest->id);
+        bitset_insert(unit->use, unit->stmt.var_asn.val->id);
+        break;
+    }
+    case IR_VAR_DECL: {
+        bitset_insert(unit->def, unit->stmt.decl.sym->id);
+        break;
+    }
+    case IR_PRINT: {
+        bitset_insert(unit->use, unit->stmt.print.val->id);
+        break;
+    }
+    case IR_LABEL: { break; }
+    case IR_CJMP: {
+        bitset_insert(unit->use, unit->stmt.cjmp.cond_symb->id);
+        break;
+    }
+    case IR_JMP: { break; }
+    }
+}
+static bool
+ir_update_unit_in(struct ir_unit * unit)
+{
+    /* tmp = out − def */
+    struct bitset * tmp = bitset_copy(unit->out);
+    bitset_difference(tmp, unit->def);
+
+    /* tmp = tmp union use  ->  new_in */
+    bitset_union_assign(tmp, unit->use);
+
+    bool changed = !bitset_equal(tmp, unit->in);
+
+    /* commit */
+    bitset_assign(unit->in, tmp);
+    bitset_destroy(tmp);
+
+    return changed;
+}
+
+static bool
+ir_update_in_out(struct ir_unit * unit)
+{
+    if (!unit) return false;
+
+    if (unit->type == IR_BLOCK) {
+        struct ir_block * blk = &unit->block;
+        int n = darr_size(blk->units);
+        if (n == 0) return false;
+        bool changed = false;
+        for (int i = 0; i < n; i++) {
+            struct ir_unit * child = darr_get(blk->units, i);
+            if (child->type == IR_BLOCK)
+                changed = ir_update_in_out(child) || changed;
+        }
+        struct ir_stmt * next_stmt = NULL;
+        for (int i = n - 1; i >= 0; i--) {
+            struct ir_unit * child = darr_get(blk->units, i);
+            if (child->type == IR_BLOCK) {
+                next_stmt = NULL;
+                continue;
+            }
+
+            struct ir_stmt * stmt = &child->stmt;
+            if (next_stmt) {
+                bitset_assign(stmt->out, next_stmt->in);
+            } else {
+                /* Seed from CFG successors. */
+                int n_succ = darr_size(blk->succ);
+                for (int s = 0; s < n_succ; s++) {
+                    struct ir_block ** succ_ptr = darr_get(blk->succ, s);
+                    struct ir_block *  succ     = *succ_ptr;
+                    /* Find the first statement in the successor block. */
+                    int succ_n = darr_size(succ->units);
+                    for (int k = 0; k < succ_n; k++) {
+                        struct ir_unit * su = darr_get(succ->units, k);
+                        if (su->type == IR_STMT) {
+                            bitset_union_assign(stmt->out, su->stmt.in);
+                            break;
+                        }
+                    }
+                }
+            }
+            changed = ir_update_stmt_in(stmt) || changed;
+            next_stmt = stmt;
+        }
+        return changed;
+    }
+    return ir_update_stmt_in(&unit->stmt);
+}
+
+void
+ir_cfg_analysis(struct ir_prog * prog)
+{
+    if (!prog) return;
+    ir_populate_use_def(prog->root_unit, prog->cnt_lines);
+    while (ir_update_in_out(prog->root_unit))
+        ;
 }
