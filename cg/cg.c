@@ -113,11 +113,12 @@ cg_generate_code(struct cg_ctx * ctx)
      * address. Patch every placeholder in-place. */
     for (int i = 0; i < darr_size(ctx->jump_pos); i++) {
         int placeholder_idx = *(int*)darr_get(ctx->jump_pos, i);
-        int label_sym_id = ((union vm_instr_view*)darr_get(program, placeholder_idx))->raw;
-        int target_pc = *(int*)darr_get(ctx->label_pos, label_sym_id);
+        int label_sym_id    = ((union vm_instr_view*)darr_get(program, placeholder_idx))->raw;
+        int target_pc       = *(int*)darr_get(ctx->label_pos, label_sym_id);
         union vm_instr_view patched = { .raw = target_pc };
         darr_set(program, placeholder_idx, &patched);
     }
+
     union vm_instr_view exit_view = {
         .base = {
             .op = VM_EXIT

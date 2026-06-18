@@ -738,10 +738,10 @@ ir_populate_use_def(struct ir_unit * unit, int cnt_symbols)
         break;
     case IR_CJMP:
         bitset_insert(unit->use, unit->stmt.cjmp.cond_symb->id);
-        bitset_insert(unit->use, unit->stmt.cjmp.loc_label);
+        bitset_insert(unit->def, unit->stmt.cjmp.loc_label);
         break;
     case IR_JMP:
-        bitset_insert(unit->use, unit->stmt.jmp.loc_label);
+        bitset_insert(unit->def, unit->stmt.jmp.loc_label);
         break;
     }
 }
