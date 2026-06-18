@@ -80,6 +80,13 @@ sym_delete(struct symbol * sym)
 }
 
 
+int
+sym_scope_cnt_symbols(struct sym_scope * scope)
+{
+    if (!scope) return 0;
+    return *(scope->id) + 1;
+}
+
 void
 sym_scope_delete(struct sym_scope * scope)
 {

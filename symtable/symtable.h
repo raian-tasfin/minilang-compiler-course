@@ -17,6 +17,8 @@ struct symbol    * sym_scope_find_local(struct sym_scope * scope, char * name);
 struct symbol    * sym_scope_find(struct sym_scope * scope, char * name);
 void               sym_scope_delete(struct sym_scope * scope);
 
+int sym_scope_cnt_symbols(struct sym_scope * scope);
+
 struct symbol    * sym_new(struct sym_scope * scope, char * name, enum scalar_type type);
 enum scalar_type   sym_type(struct symbol * sym);
 

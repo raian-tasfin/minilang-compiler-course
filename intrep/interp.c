@@ -155,15 +155,12 @@ ir_prog_add_cond_goto(struct ast_node * condition,
 
     /* condition calculation */
     // recursively add calculation here
-    // segfault here
-    puts("cond_symb before");
     struct symbol * cond_symb =
         ir_prog_generate_rec(condition,
                              block,
                              scope,
                              lineno,
                              label);
-    puts("cond_symb after");
     /* if condition goto block */
     // construct
     struct ir_unit cjmp = ir_unit_stmt_ctr((struct ir_stmt){
@@ -215,7 +212,6 @@ ir_prog_generate_rec(struct ast_node * node,
         return dest;
     }
     case AST_BINOP: {
-        puts(astk_binop_to_str(node->binop.op));
         /* Destination type */
         enum scalar_type dest_type;
         switch (node->binop.op) {
@@ -419,8 +415,8 @@ ir_prog_generate_rec(struct ast_node * node,
         struct sym_scope * subscope = sym_scope_new(scope);
 
         // calculate label ids
-        int block_label_id = (*label)++;
-        int condition_label_id = (*label)++;
+        int block_label_id = sym_new(scope, NULL, SCAL_INTEGER)->id;
+        int condition_label_id = sym_new(scope, NULL, SCAL_INTEGER)->id;
 
         /* add
          * goto condition:
@@ -458,7 +454,6 @@ ir_prog_generate_rec(struct ast_node * node,
         /* add
          * condition part
          */
-        // segfaulting here.
         int condition_label_indx = ir_prog_add_cond_goto(node->while_loop.condition,
                                                          lineno,
                                                          label,
@@ -738,11 +733,16 @@ ir_populate_use_def(struct ir_unit * unit, int cnt_symbols)
     case IR_PRINT:
         bitset_insert(unit->use, unit->stmt.print.val->id);
         break;
-    case IR_LABEL: break;
+    case IR_LABEL:
+        bitset_insert(unit->def, unit->stmt.label.id);
+        break;
     case IR_CJMP:
         bitset_insert(unit->use, unit->stmt.cjmp.cond_symb->id);
+        bitset_insert(unit->use, unit->stmt.cjmp.loc_label);
         break;
-    case IR_JMP: break;
+    case IR_JMP:
+        bitset_insert(unit->use, unit->stmt.jmp.loc_label);
+        break;
     }
 }
 
