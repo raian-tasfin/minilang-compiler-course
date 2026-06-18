@@ -443,8 +443,8 @@ ir_prog_generate_rec(struct ast_node * node,
         struct ast_node * body = node->while_loop.body;
         int body_n = darr_size(body->block.statements);
         for (int i = 0; i < body_n; i++) {
-            struct ast_node * child = darr_get(body->block.statements, i);
-            ir_prog_generate_rec(child,
+            struct ast_node ** child = darr_get(body->block.statements, i);
+            ir_prog_generate_rec(*child,
                                  &subblock_unit.block,
                                  subscope,
                                  lineno,

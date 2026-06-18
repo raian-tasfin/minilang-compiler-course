@@ -8,9 +8,8 @@
  * Structures *
  **************/
 struct cg_ctx {
-    struct darr *    last_use;   // line number. int.
-    struct darr *    reg_of_sym; // register. int. (-1 means unassigned)
-    int              sym_at_reg[VM_REGISTER_CNT];
+    struct darr * reg_of_sym; // register. int. (-1 means unassigned)
+    int           sym_at_reg[VM_REGISTER_CNT];
     struct ir_unit * root_unit;
 };
 
