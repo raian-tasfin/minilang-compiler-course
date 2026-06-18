@@ -54,6 +54,8 @@ union vm_instr_view cg_generate_prnt_asn( struct cg_ctx * ctx, struct ir_stmt st
 
 bool cg_ir_register_alloc_pass(struct cg_ctx * ctx, struct ir_unit unit);
 void cg_ir_register_free_pass(struct cg_ctx * ctx, struct ir_unit unit);
+int  cg_scratch_alloc(struct cg_ctx * ctx);
+void cg_scratch_free(struct cg_ctx * ctx, int reg);
 
 int cg_scalar_to_int(struct ir_scalar scalar);
 
@@ -69,6 +71,8 @@ cg_ctx_init(struct ir_prog * ir_prog, int cnt_sym)
     struct cg_ctx * ctx = NULL;
     struct darr * luse = NULL;
     int none = -1;
+
+    printf("cnt_sym - arg of ctx_init %d\n", cnt_sym);
 
     // Ensure valid program
     if (!ir_prog || !ir_prog->root_unit) return NULL;
@@ -113,8 +117,8 @@ cg_generate_code(struct cg_ctx * ctx)
      * address. Patch every placeholder in-place. */
     for (int i = 0; i < darr_size(ctx->jump_pos); i++) {
         int placeholder_idx = *(int*)darr_get(ctx->jump_pos, i);
-        int label_sym_id    = ((union vm_instr_view*)darr_get(program, placeholder_idx))->raw;
-        int target_pc       = *(int*)darr_get(ctx->label_pos, label_sym_id);
+        int label_sym_id = ((union vm_instr_view*)darr_get(program, placeholder_idx))->raw;
+        int target_pc = *(int*)darr_get(ctx->label_pos, label_sym_id);
         union vm_instr_view patched = { .raw = target_pc };
         darr_set(program, placeholder_idx, &patched);
     }
@@ -202,12 +206,20 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
     }
     case IR_LABEL: {
         int next_indx = darr_size(program);
+        printf("sym id: ir_label: %d\n", unit->stmt.label.id);
         if (!darr_set(ctx->label_pos, unit->stmt.label.id, &next_indx)) return false;
         break;
     }
     case IR_JMP: {
         int label_id = unit->stmt.jmp.loc_label;
-        int reg = *(int*)darr_get(ctx->reg_of_sym, label_id);
+        printf("sym id: ir_jmp: %d\n", label_id);
+
+        /* Allocate a short-lived scratch register just for this MOV+JMP pair.
+         * The label ghost symbol's register in reg_of_sym is unreliable here
+         * because the IR_LABEL may be in a different block nesting level,
+         * making its liveness invisible to the sequential wiring pass. */
+        int reg = cg_scratch_alloc(ctx);
+        if (reg == -1) return false;
 
         // add move
         union vm_instr_view mov_view = {
@@ -219,11 +231,11 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
         };
         if (!darr_push_back(program, &mov_view)) return false;
 
-        // add raw value. label id for now
+        // add raw value (label_id placeholder; patched in second pass)
         union vm_instr_view label_val = { .raw = label_id, };
         if (!darr_push_back(program, &label_val)) return false;
 
-        // record raw values index
+        // record placeholder index for second pass
         int indx = darr_size(program) - 1;
         if (!darr_push_back(ctx->jump_pos, &indx)) return false;
 
@@ -235,12 +247,17 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
             },
         };
         if (!darr_push_back(program, &jmp)) return false;
+        cg_scratch_free(ctx, reg);
         break;
     }
     case IR_CJMP: {
-        /* Handle jump label part. similar to jump */
         int label_id = unit->stmt.cjmp.loc_label;
-        int reg = *(int*)darr_get(ctx->reg_of_sym, label_id);
+        printf("sym id: ir_cjmp: %d\n", label_id);
+
+        /* Same scratch-register approach as IR_JMP. */
+        int reg = cg_scratch_alloc(ctx);
+        if (reg == -1) return false;
+
         union vm_instr_view mov_view = {
             .mov = {
                 .op = VM_MOV,
@@ -263,6 +280,7 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
             },
         };
         if (!darr_push_back(program, &cjmp)) return false;
+        cg_scratch_free(ctx, reg);
         break;
     }
     }
@@ -273,6 +291,7 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
 union vm_instr_view
 cg_generate_const_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
 {
+    printf("const_asn: dest_id: %d\n", stmt.const_asn.dest->id);
     union vm_instr_view view = {
         .mov = {
             .dest = *(int*)darr_get(ctx->reg_of_sym, stmt.const_asn.dest->id),
@@ -289,6 +308,8 @@ cg_generate_const_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
 union vm_instr_view
 cg_generate_var_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
 {
+    printf("var_asn: dest_id: %d\n", stmt.var_asn.dest->id);
+    printf("var_asn: val_id: %d\n", stmt.var_asn.val->id);
     union vm_instr_view view = {
         .mov = {
             .dest = *(int*)darr_get(ctx->reg_of_sym, stmt.var_asn.dest->id),
@@ -303,6 +324,9 @@ cg_generate_var_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
 union vm_instr_view
 cg_generate_binop_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
 {
+    printf("var_asn: dest_id: %d\n", stmt.binop_asn.dest->id);
+    printf("var_asn: val1_id: %d\n", stmt.binop_asn.val1->id);
+    printf("var_asn: val2_id: %d\n", stmt.binop_asn.val2->id);
     union vm_instr_view view = {
         .bin = {
             .op   = cg_ir_to_vm_binop(stmt.binop_asn.op),
@@ -317,6 +341,8 @@ cg_generate_binop_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
 union vm_instr_view
 cg_generate_unop_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
 {
+    printf("unop_asn: dest_id: %d\n", stmt.unop_asn.dest->id);
+    printf("unop_asn: val_id: %d\n", stmt.unop_asn.val->id);
     union vm_instr_view view = {
         .un = {
             .op   = cg_ir_to_vm_unop(stmt.unop_asn.op),
@@ -333,6 +359,7 @@ cg_generate_prnt_asn( struct cg_ctx * ctx, struct ir_stmt stmt)
     uint16_t flags = 0;
     if (stmt.print.val->type == SCAL_BOOLEAN) flags |= VM_PRNT_BOOLEAN;
 
+    printf("prnt: val_id: %d\n", stmt.print.val->id);
     union vm_instr_view view = {
         .print = {
             .op = VM_PRNT,
@@ -391,6 +418,7 @@ cg_ir_register_alloc_pass(struct cg_ctx * ctx, struct ir_unit unit)
 {
     int none = -1;
     for (int sym = 0; sym < ctx->cnt_sym; sym++) {
+        if (*(int*)darr_get(ctx->reg_of_sym, sym) != none) continue;
         if (!bitset_contains(unit.def, sym)) continue;
         bool found = false;
         for (int r = 0; r < VM_REGISTER_CNT; r++) {
@@ -409,11 +437,36 @@ void
 cg_ir_register_free_pass(struct cg_ctx * ctx, struct ir_unit unit)
 {
     int none = -1;
+    printf("  [free_pass lineno=%d] out contains:", unit.stmt.lineno);
+    for (int sym = 0; sym < ctx->cnt_sym; sym++)
+        if (bitset_contains(unit.out, sym)) printf(" %d", sym);
+    printf("\n");
     for (int sym = 0; sym < ctx->cnt_sym; sym++) {
         if (bitset_contains(unit.out, sym)) continue;
         int r = *(int*)darr_get(ctx->reg_of_sym, sym);
         if (r == none) continue;
+        printf("freeing registe: %d: symbol: %d\n", r, sym);
         darr_set(ctx->reg_of_sym, sym, &none);
         ctx->sym_at_reg[r] = none;
     }
+}
+
+/* Grab any free register without tying it to a symbol.
+ * Used for the ephemeral MOV+JMP/CJMP address register. */
+int
+cg_scratch_alloc(struct cg_ctx * ctx)
+{
+    for (int r = 0; r < VM_REGISTER_CNT; r++) {
+        if (ctx->sym_at_reg[r] != -1) continue;
+        ctx->sym_at_reg[r] = -2; /* sentinel: scratch-held */
+        return r;
+    }
+    return -1; /* out of registers */
+}
+
+void
+cg_scratch_free(struct cg_ctx * ctx, int reg)
+{
+    if (reg >= 0 && reg < VM_REGISTER_CNT)
+        ctx->sym_at_reg[reg] = -1;
 }

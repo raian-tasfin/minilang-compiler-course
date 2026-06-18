@@ -170,7 +170,7 @@ ir_prog_generate(struct ast_node * root, struct sym_scope * scope);
  * CFG Analysis *
  ****************/
 void
-ir_cfg_analysis(struct ir_prog * prog);
+ir_cfg_analysis(struct ir_prog * prog, struct sym_scope * scope);
 
 
 /***********

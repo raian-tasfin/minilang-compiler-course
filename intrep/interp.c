@@ -6,6 +6,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+static void
+ir_wire_sequential(struct ir_unit * unit);
+
 
 static enum ir_binop
 ir_binop_from_ast(enum ast_binop_type op)
@@ -134,7 +137,7 @@ ir_prog_add_goto(int * lineno, int label_id, struct ir_block * block)
     return darr_size(block->units) - 1;
 }
 
-// add conditional jump to block and return the index.
+// add conditional jump to block and return the index of the CJMP statement.
 static int
 ir_prog_add_cond_goto(struct ast_node * condition,
                       int * lineno,
@@ -151,7 +154,7 @@ ir_prog_add_cond_goto(struct ast_node * condition,
         });
     // push
     darr_push_back(block->units, &condition_label);
-    int res = darr_size(block->units) - 1;
+    int cond_label_indx = darr_size(block->units) - 1;
 
     /* condition calculation */
     // recursively add calculation here
@@ -172,7 +175,9 @@ ir_prog_add_cond_goto(struct ast_node * condition,
                 },
             });
     darr_push_back(block->units, &cjmp);
-    return res;
+    /* Return the index of the CJMP (last pushed), not the label.
+     * Callers need the CJMP to wire succ edges for liveness. */
+    return darr_size(block->units) - 1;
 }
 
 static struct symbol *
@@ -462,21 +467,20 @@ ir_prog_generate_rec(struct ast_node * node,
                                                          block_label_id,
                                                          &(subblock_unit.block));
         // now we collect the block pointers
-        struct ir_unit * goto_label_ref = darr_get(block->units, goto_label_indx);
-        struct ir_unit * block_label_ref  = darr_get(subblock_unit.block.units, block_label_indx);
-        struct ir_unit * cond_label_ref = darr_get(subblock_unit.block.units, condition_label_indx);
+        struct ir_unit * block_label_ref = darr_get(subblock_unit.block.units, block_label_indx);
+        struct ir_unit * cjmp_ref        = darr_get(subblock_unit.block.units, condition_label_indx);
 
-        // goto condition: -> condition_block
-        darr_push_back(goto_label_ref->succ, &cond_label_ref);
-        darr_push_back(cond_label_ref->pred, &goto_label_ref);
+        /* The only explicit CFG edge needed here is the CJMP's taken branch
+         * back to the loop body entry (block_label). All other connectivity
+         * is handled by ir_wire_sequential:
+         *   - outer stmt before subblock → first stmt of subblock (sequential)
+         *   - all stmts within subblock wired sequentially (8→9→...→18)
+         * The CJMP's not-taken (fall-through) exit has no successor,
+         * which is correct: variables dead after the loop need no edge. */
 
-        // sub_block -> condition_block  (loop back edge)
-        darr_push_back(block_label_ref->succ,  &cond_label_ref);
-        darr_push_back(cond_label_ref->pred, &block_label_ref);
-
-        // condition_block -> sub_block  (true branch)
-        darr_push_back(cond_label_ref->succ, &block_label_ref);
-        darr_push_back(block_label_ref->pred,  &cond_label_ref);
+        // cjmp true-branch -> block_label (loop back-edge)
+        darr_push_back(cjmp_ref->succ, &block_label_ref);
+        darr_push_back(block_label_ref->pred, &cjmp_ref);
 
         // attach the loop's sub-block to the enclosing block
         darr_push_back(block->units, &subblock_unit);
@@ -728,7 +732,10 @@ ir_populate_use_def(struct ir_unit * unit, int cnt_symbols)
         bitset_insert(unit->use, unit->stmt.var_asn.val->id);
         break;
     case IR_VAR_DECL:
-        bitset_insert(unit->def, unit->stmt.decl.sym->id);
+        /* Do not def the symbol here. The register will be allocated by
+         * the IR_CONST_ASSIGNMENT or IR_VAR_ASSIGNMENT that immediately
+         * follows the decl. Defing it here causes alloc+immediate free
+         * before the assignment has a chance to use it. */
         break;
     case IR_PRINT:
         bitset_insert(unit->use, unit->stmt.print.val->id);
@@ -738,10 +745,10 @@ ir_populate_use_def(struct ir_unit * unit, int cnt_symbols)
         break;
     case IR_CJMP:
         bitset_insert(unit->use, unit->stmt.cjmp.cond_symb->id);
-        bitset_insert(unit->def, unit->stmt.cjmp.loc_label);
+        bitset_insert(unit->use, unit->stmt.cjmp.loc_label);
         break;
     case IR_JMP:
-        bitset_insert(unit->def, unit->stmt.jmp.loc_label);
+        bitset_insert(unit->use, unit->stmt.jmp.loc_label);
         break;
     }
 }
@@ -773,7 +780,11 @@ ir_update_in_out(struct ir_unit * unit)
     if (unit->type == IR_BLOCK) {
         bool changed = false;
         int n = darr_size(unit->block.units);
-        for (int i = 0; i < n; i++) {
+        /* Traverse in reverse: liveness is a backward dataflow problem.
+         * A statement's out = union of its successors' in. The sequential
+         * successor of child[i] is child[i+1], so we must process child[i+1]
+         * first so its in is up-to-date when child[i] reads it. */
+        for (int i = n - 1; i >= 0; i--) {
             struct ir_unit * child = darr_get(unit->block.units, i);
             changed = ir_update_in_out(child) || changed;
         }
@@ -787,51 +798,68 @@ ir_update_in_out(struct ir_unit * unit)
         bitset_union_assign(unit->out, (*succ)->in);
     }
 
+    printf("%2d. succ_size: %3d\n",
+           unit->stmt.lineno,
+           darr_size(unit->succ));
+
     return ir_update_unit_in(unit);
 }
 
-/* Collect all IR_STMT units in program order into a flat array */
-static void
-ir_collect_stmts(struct ir_unit * unit, struct darr * stmts)
-{
-    if (!unit) return;
-    if (unit->type == IR_BLOCK) {
-        int n = darr_size(unit->block.units);
-        for (int i = 0; i < n; i++) {
-            struct ir_unit * child = darr_get(unit->block.units, i);
-            ir_collect_stmts(child, stmts);
-        }
-        return;
-    }
-    darr_push_back(stmts, &unit);
-}
-
-/* Add fall-through edges between consecutive statements that don't
- * already have an explicit successor (i.e. are not unconditional jumps).
- * IR_JMP already has its successor set; everything else falls through. */
-static void
-ir_add_fallthrough_edges(struct ir_unit * root)
-{
-    struct darr * stmts = darr_init(sizeof(struct ir_unit *));
-    ir_collect_stmts(root, stmts);
-    int n = darr_size(stmts);
-    for (int i = 0; i < n - 1; i++) {
-        struct ir_unit * cur  = *(struct ir_unit **)darr_get(stmts, i);
-        struct ir_unit * next = *(struct ir_unit **)darr_get(stmts, i + 1);
-        /* IR_JMP always transfers control away; don't add a fall-through */
-        if (cur->stmt.type == IR_JMP) continue;
-        darr_push_back(cur->succ,  &next);
-        darr_push_back(next->pred, &cur);
-    }
-    darr_destroy(&stmts);
-}
-
 void
-ir_cfg_analysis(struct ir_prog * prog)
+ir_cfg_analysis(struct ir_prog * prog, struct sym_scope * scope)
 {
     if (!prog) return;
-    ir_populate_use_def(prog->root_unit, prog->cnt_lines);
-    ir_add_fallthrough_edges(prog->root_unit);
+    int cnt_sym = sym_scope_cnt_symbols(scope);
+    ir_populate_use_def(prog->root_unit, cnt_sym);
+    ir_wire_sequential(prog->root_unit);   // ← add this
     while (ir_update_in_out(prog->root_unit))
         ;
+}
+
+
+/* Wire sequential fall-through edges within a block.
+ * For each consecutive pair of stmt units, prev->succ includes next
+ * and next->pred includes prev. Recurse into sub-blocks first so
+ * inner units are fully linked before we look at the outer block. */
+static void
+ir_wire_sequential(struct ir_unit * unit)
+{
+    if (!unit) return;
+    if (unit->type == IR_STMT) return;
+
+    int n = darr_size(unit->block.units);
+
+    /* First recurse so inner blocks are wired */
+    for (int i = 0; i < n; i++) {
+        struct ir_unit * child = darr_get(unit->block.units, i);
+        ir_wire_sequential(child);
+    }
+
+    /* Then wire consecutive children of this block.
+     * "last stmt" of child i -> "first stmt" of child i+1 */
+    for (int i = 0; i + 1 < n; i++) {
+        struct ir_unit * a = darr_get(unit->block.units, i);
+        struct ir_unit * b = darr_get(unit->block.units, i + 1);
+
+        /* Get the last stmt unit reachable from a */
+        struct ir_unit * last_of_a = a;
+        while (last_of_a->type == IR_BLOCK) {
+            int m = darr_size(last_of_a->block.units);
+            if (m == 0) break;
+            last_of_a = darr_get(last_of_a->block.units, m - 1);
+        }
+
+        /* Get the first stmt unit reachable from b */
+        struct ir_unit * first_of_b = b;
+        while (first_of_b->type == IR_BLOCK) {
+            int m = darr_size(first_of_b->block.units);
+            if (m == 0) break;
+            first_of_b = darr_get(first_of_b->block.units, 0);
+        }
+
+        if (last_of_a->type == IR_STMT && first_of_b->type == IR_STMT) {
+            darr_push_back(last_of_a->succ, &first_of_b);
+            darr_push_back(first_of_b->pred, &last_of_a);
+        }
+    }
 }

@@ -110,7 +110,7 @@ int main(int argc, char * const * argv)
        goto destruct;
    }
    ir_print(&ir_ctx, ir_program.root_unit);
-   ir_cfg_analysis(&ir_program);
+   ir_cfg_analysis(&ir_program, scope);
     /*******************
      * Code Generation *
      *******************/
