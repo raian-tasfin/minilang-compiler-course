@@ -6,7 +6,7 @@
 #include "lexer/lex.yy.h"
 #include "ast/ast.h"
 #include "intrep/interp.h"
-#include "cg/cg.h"
+/* #include "cg/cg.h" */
 #include "darr/darr.h"
 #include "seman/seman.h"
 #include "symtable/symtable.h"
@@ -19,11 +19,11 @@ int main(int argc, char * const * argv)
     struct ir_ctx ir_ctx = {0}; yyscan_t scanner = NULL;
     struct ast_node * ast_root = NULL;
     struct ast_ctx ast_ctx = {0};
-    struct cg_ctx *  cg_ctx = NULL;
+    /* struct cg_ctx *  cg_ctx = NULL; */
     struct darr * program = NULL;
     struct src_buffer sb = {0};
     int exit_status = EXIT_SUCCESS;
-    FILE * cg_out = NULL;
+    /* FILE * cg_out = NULL; */
     struct sym_scope * scope = NULL;
 
     /*********************
@@ -151,9 +151,9 @@ int main(int argc, char * const * argv)
     ast_ctx_destroy(&ast_ctx);
     ir_ctx_destroy(&ir_ctx);
     sym_scope_delete(scope);
-    cg_ctx_destroy(&cg_ctx);
+    /* cg_ctx_destroy(&cg_ctx); */
     darr_destroy(&program);
-    if (cg_out) fclose(cg_out);
+    /* if (cg_out) fclose(cg_out); */
     src_buf_free(&sb);
     return exit_status;
 }

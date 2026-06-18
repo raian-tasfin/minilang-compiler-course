@@ -130,10 +130,16 @@ struct ir_stmt {
     };
 };
 
+struct ir_block {
+    struct darr * units; // array of ir_units
+    struct darr * pred;  // array of predecessor block (ir_block)
+    struct darr * succ;  // array of successor block (ir_block)
+};
+
 struct ir_unit {
     enum ir_unit_type type;
     union {
-        struct darr * block; // array of ir_units.
+        struct ir_block block;
         struct ir_stmt stmt;
     };
 };
@@ -145,9 +151,8 @@ struct ir_unit {
 /**
  * An IR program is an array of units.
  */
-struct ir_unit * // array of units
+struct ir_unit *
 ir_prog_generate(struct ast_node * root, struct sym_scope * scope);
-
 
 
 /***********
