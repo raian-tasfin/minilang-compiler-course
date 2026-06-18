@@ -88,7 +88,7 @@ cg_ctx_init(struct ir_prog * ir_prog, int cnt_sym)
     ctx->cnt_sym = cnt_sym;
 
     for (int r = 0; r < VM_REGISTER_CNT; r++) ctx->sym_at_reg[r] = none;
-    ir_prog = ir_prog;
+    ctx->ir_prog = ir_prog;
 
     return ctx;
 
@@ -106,7 +106,6 @@ cg_generate_code(struct cg_ctx * ctx)
     if (!ctx) goto error;
     if (!(program = darr_init(sizeof(union vm_instr_view)))) goto error;
     if (!cg_generate_code_rec(ctx, ctx->ir_prog->root_unit, program)) goto error;
-
     union vm_instr_view exit_view = {
         .base = {
             .op = VM_EXIT
@@ -195,7 +194,7 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
     }
     case IR_JMP: {
         int label_id = unit->stmt.jmp.loc_label;
-        int reg = *(int*)darr_get(ctx->reg_of_sym, reg);
+        int reg = *(int*)darr_get(ctx->reg_of_sym, label_id);
 
         // add move
         union vm_instr_view mov_view = {
@@ -212,7 +211,8 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
         if (!darr_push_back(program, &label_val)) return false;
 
         // record raw values index
-        if (!darr_set(ctx->jump_pos, darr_size(program) - 1, &label_id)) return false;
+        int indx = darr_size(program) - 1;
+        if (!darr_push_back(ctx->jump_pos, &indx)) return false;
 
         // add jump
         union vm_instr_view jmp = {
@@ -227,7 +227,7 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
     case IR_CJMP: {
         /* Handle jump label part. similar to jump */
         int label_id = unit->stmt.cjmp.loc_label;
-        int reg = *(int*)darr_get(ctx->reg_of_sym, reg);
+        int reg = *(int*)darr_get(ctx->reg_of_sym, label_id);
         union vm_instr_view mov_view = {
             .mov = {
                 .op = VM_MOV,
@@ -254,6 +254,21 @@ cg_generate_code_rec(struct cg_ctx * ctx, struct ir_unit * unit, struct darr * p
     }
     return true;
 }
+
+union vm_instr_view
+cg_generate_const_asn(struct cg_ctx * ctx, struct ir_stmt stmt)
+{
+    union vm_instr_view view = {
+        .mov = {
+            .dest = *(int*)darr_get(ctx->reg_of_sym, stmt.const_asn.dest->id),
+            .op   = VM_MOV,
+            .flag = VM_MOV_CONST_TO_REG,
+        },
+    };
+    return view;
+}
+
+
 
 
 union vm_instr_view

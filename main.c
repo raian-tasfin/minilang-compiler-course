@@ -6,7 +6,7 @@
 #include "lexer/lex.yy.h"
 #include "ast/ast.h"
 #include "intrep/interp.h"
-/* #include "cg/cg.h" */
+#include "cg/cg.h"
 #include "darr/darr.h"
 #include "seman/seman.h"
 #include "symtable/symtable.h"
@@ -19,11 +19,11 @@ int main(int argc, char * const * argv)
     struct ir_ctx ir_ctx = {0}; yyscan_t scanner = NULL;
     struct ast_node * ast_root = NULL;
     struct ast_ctx ast_ctx = {0};
-    /* struct cg_ctx *  cg_ctx = NULL; */
+    struct cg_ctx *  cg_ctx = NULL;
     struct darr * program = NULL;
     struct src_buffer sb = {0};
     int exit_status = EXIT_SUCCESS;
-    /* FILE * cg_out = NULL; */
+    FILE * cg_out = NULL;
     struct sym_scope * scope = NULL;
 
     /*********************
@@ -111,30 +111,30 @@ int main(int argc, char * const * argv)
    }
    ir_print(&ir_ctx, ir_program.root_unit);
    ir_cfg_analysis(&ir_program);
-   /*  /\******************* */
-   /*   * Code Generation * */
-   /*   *******************\/ */
-   /*  if (cliopts.cg.generate) { */
-   /*      /\* Ensure options *\/ */
-   /*      if (!cliopts.cg.outpath) { */
-   /*          exit_status = EXIT_FAILURE; */
-   /*          goto destruct; */
-   /*      } */
-   /*      /\* Ensure context *\/ */
-   /*      if (!(cg_ctx = cg_ctx_init(ir_program))) { */
-   /*          exit_status = EXIT_FAILURE; */
-   /*          goto destruct; */
-   /*      } */
-   /*      program = cg_generate_code(cg_ctx); */
-   /*      /\* Ensure output file *\/ */
-   /*      if (!(cg_out = fopen(cliopts.cg.outpath, "wb"))) { */
-   /*          exit_status = EXIT_FAILURE; */
-   /*          goto destruct; */
-   /*      } */
-   /*      fwrite(cg_buffer(program), */
-   /*             darr_elem_size(program), */
-   /*             darr_size(program), cg_out); */
-   /*  } */
+    /*******************
+     * Code Generation *
+     *******************/
+    if (cliopts.cg.generate) {
+        /* Ensure options */
+        if (!cliopts.cg.outpath) {
+            exit_status = EXIT_FAILURE;
+            goto destruct;
+        }
+        /* Ensure context */
+        if (!(cg_ctx = cg_ctx_init(&ir_program, sym_scope_cnt_symbols(scope)))) {
+            exit_status = EXIT_FAILURE;
+            goto destruct;
+        }
+        program = cg_generate_code(cg_ctx);
+        /* Ensure output file */
+        if (!(cg_out = fopen(cliopts.cg.outpath, "wb"))) {
+            exit_status = EXIT_FAILURE;
+            goto destruct;
+        }
+        fwrite(cg_buffer(program),
+               darr_elem_size(program),
+               darr_size(program), cg_out);
+    }
 
     /************
      * Destruct *
@@ -152,9 +152,9 @@ int main(int argc, char * const * argv)
     ast_ctx_destroy(&ast_ctx);
     ir_ctx_destroy(&ir_ctx);
     sym_scope_delete(scope);
-    /* cg_ctx_destroy(&cg_ctx); */
+    cg_ctx_destroy(&cg_ctx);
     darr_destroy(&program);
-    /* if (cg_out) fclose(cg_out); */
+    if (cg_out) fclose(cg_out);
     src_buf_free(&sb);
     return exit_status;
 }
