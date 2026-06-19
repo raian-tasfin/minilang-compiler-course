@@ -109,8 +109,8 @@ int main(int argc, char * const * argv)
        exit_status = EXIT_FAILURE;
        goto destruct;
    }
-   ir_print(&ir_ctx, ir_program.root_unit);
-   ir_cfg_analysis(&ir_program, scope);
+   ir_print(&ir_ctx, &ir_program);
+
     /*******************
      * Code Generation *
      *******************/
@@ -121,7 +121,7 @@ int main(int argc, char * const * argv)
             goto destruct;
         }
         /* Ensure context */
-        if (!(cg_ctx = cg_ctx_init(&ir_program, sym_scope_cnt_symbols(scope)))) {
+        if (!(cg_ctx = cg_ctx_init(&ir_program))) {
             exit_status = EXIT_FAILURE;
             goto destruct;
         }
