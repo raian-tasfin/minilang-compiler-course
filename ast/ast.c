@@ -687,6 +687,18 @@ ast_to_dot(struct ast_node * root,
     case AST_WHILE_LOOP:
         fprintf(strm, "  node%d [label=\"WHILE\"];\n", my_id);
         break;
+    case AST_IF:
+        fprintf(strm, "  node%d [label=\"%s\"];\n", my_id, astk_kind_to_str(AST_IF));
+        break;
+    case AST_ELIF:
+        fprintf(strm, "  node%d [label=\"%s\"];\n", my_id, astk_kind_to_str(AST_ELIF));
+        break;
+    case AST_ELSE:
+        fprintf(strm, "  node%d [label=\"%s\"];\n", my_id, astk_kind_to_str(AST_ELSE));
+        break;
+    case AST_COND:
+        fprintf(strm, "  node%d [label=\"%s\"];\n", my_id, astk_kind_to_str(AST_COND));
+        break;
     default:
         fprintf(strm, "  node%d [label=\"%s\"];\n", my_id, astk_kind_to_str(root->type));
         break;
@@ -724,6 +736,29 @@ ast_to_dot(struct ast_node * root,
         ast_to_dot(root->while_loop.condition,  strm, my_id, dot_id);
         ast_to_dot(root->while_loop.body, strm, my_id, dot_id);
         break;
+    case AST_IF:
+        ast_to_dot(root->if_block.condition, strm, my_id, dot_id);
+        ast_to_dot(root->if_block.body, strm, my_id, dot_id);
+        break;
+    case AST_ELIF:
+        ast_to_dot(root->elif_block.condition, strm, my_id, dot_id);
+        ast_to_dot(root->elif_block.body, strm, my_id, dot_id);
+        break;
+    case AST_ELSE:
+        ast_to_dot(root->else_block.body, strm, my_id, dot_id);
+        break;
+    case AST_COND: {
+        int n = darr_size(root->cond_stmt.elif_ladder);
+        ast_to_dot(root->cond_stmt.if_block, strm, my_id, dot_id);
+        for (int i = 0; i < n; i++) {
+            struct ast_node * child_elif = darr_get(root->cond_stmt.elif_ladder, i);
+            ast_to_dot(child_elif, strm, my_id, dot_id);
+        }
+        if (root->cond_stmt.else_block) {
+            ast_to_dot(root->cond_stmt.else_block, strm, my_id, dot_id);
+        }
+        break;
+    }
     default:
         break;
     }
@@ -784,12 +819,32 @@ ast_delete(struct ast_node ** root)
         ast_delete(&(*root)->while_loop.condition);
         ast_delete(&(*root)->while_loop.body);
         break;
+    case AST_IF:
+        ast_delete(&(*root)->if_block.condition);
+        ast_delete(&(*root)->if_block.body);
+        break;
+    case AST_ELIF:
+        ast_delete(&(*root)->elif_block.condition);
+        ast_delete(&(*root)->elif_block.body);
+        break;
+    case AST_ELSE:
+        ast_delete(&(*root)->else_block.body);
+        break;
+    case AST_COND: {
+        ast_delete(&(*root)->cond_stmt.if_block);
+        darr_destroy(&(*root)->cond_stmt.elif_ladder);
+        if ((*root)->cond_stmt.else_block) {
+            ast_delete(&((*root)->cond_stmt.else_block));
+        }
+        break;
+    }
     case AST_PUNCTUATOR:
         break;
     }
     free(*root);
     *root = NULL;
 }
+
 
 
 /****************
