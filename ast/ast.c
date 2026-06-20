@@ -327,7 +327,7 @@ ast_ctr_else_block(struct ast_node * body,
     }
 
     node[0] = (struct ast_node) {
-        .type = AST_ELIF,
+        .type = AST_ELSE,
         .current_block = current_block,
         .loc = loc,
         .else_block = {
@@ -356,7 +356,7 @@ ast_ctr_cond_stmt(struct ast_node * if_block,
     }
 
     node[0] = (struct ast_node) {
-        .type = AST_ELIF,
+        .type = AST_COND,
         .current_block = current_block,
         .loc = loc,
         .cond_stmt = {
@@ -599,12 +599,12 @@ ast_print_texttree_r(struct ast_node *root,
         ast_print_texttree_r(root->if_block.body, strm, prefix, plen + clen, 1);
         break;
     case AST_ELIF:
-        fprintf(strm, "%s\n", astk_kind_to_str(AST_IF));
+        fprintf(strm, "%s\n", astk_kind_to_str(AST_ELIF));
         ast_print_texttree_r(root->if_block.condition,  strm, prefix, plen + clen, 0);
         ast_print_texttree_r(root->if_block.body, strm, prefix, plen + clen, 1);
         break;
     case AST_ELSE:
-        fprintf(strm, "%s\n", astk_kind_to_str(AST_IF));
+        fprintf(strm, "%s\n", astk_kind_to_str(AST_ELSE));
         ast_print_texttree_r(root->else_block.body, strm, prefix, plen + clen, 1);
         break;
     case AST_COND:
