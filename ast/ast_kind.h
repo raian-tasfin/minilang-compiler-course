@@ -14,6 +14,10 @@ enum ast_kind {
     AST_DECLARATION,
     AST_ASSIGNMENT,
     AST_WHILE_LOOP,
+    AST_COND,
+    AST_IF,
+    AST_ELIF,
+    AST_ELSE,
 };
 
 

@@ -90,6 +90,33 @@ struct ast_asn_node {
     struct ast_node * rhs;
 };
 
+
+/*************
+ * Condition *
+ *************/
+/* Things get easier if we wrap everything in ast_node's. Makes the
+ * large control flow structures easier.
+ */
+struct ast_if_block {
+    struct ast_node * condition;
+    struct ast_node * body;
+};
+
+struct ast_elif_block {
+    struct ast_node * condition;
+    struct ast_node * body;
+};
+
+struct ast_else_block {
+    struct ast_node * body;
+};
+
+struct ast_cond_stmt {
+    struct ast_node * if_block;
+    struct darr * elif_ladder;  // list of ast_node. Nodes are ast_elif type
+    struct ast_node * else_block;
+};
+
 struct ast_node {
     enum ast_kind type;
     struct ast_node * current_block;
@@ -105,6 +132,11 @@ struct ast_node {
         struct ast_asn_node asn;
         struct ast_ident_node ident;
         struct ast_while_loop while_loop;
+        // condition
+        struct ast_cond_stmt cond_stmt;
+        struct ast_if_block if_block;
+        struct ast_elif_block elif_block;
+        struct ast_else_block  else_block ;
     };
 };
 
@@ -153,6 +185,30 @@ ast_ctr_while_loop(struct ast_node * condition,
                    struct ast_node * current_block,
                    struct ast_src_loc loc);
 
+struct ast_node *
+ast_ctr_if_block(struct ast_node * condition,
+                 struct ast_node * body,
+                 struct ast_node * current_block,
+                 struct ast_src_loc loc);
+
+struct ast_node *
+ast_ctr_elif_block(struct ast_node * condition,
+                   struct ast_node * body,
+                   struct ast_node * current_block,
+                   struct ast_src_loc loc);
+
+struct ast_node *
+ast_ctr_else_block(struct ast_node * body,
+                   struct ast_node * current_block,
+                   struct ast_src_loc loc);
+
+
+struct ast_node *
+ast_ctr_cond_stmt(struct ast_node * if_block,
+                  struct darr * elif_ladder,
+                  struct ast_node * else_block,
+                  struct ast_node * current_block,
+                  struct ast_src_loc loc);
 
 struct ast_node *
 ast_ctr_block(struct ast_node * parent_block);

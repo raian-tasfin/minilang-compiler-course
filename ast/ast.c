@@ -256,6 +256,121 @@ ast_ctr_while_loop(struct ast_node * condition,
     return NULL;
 }
 
+struct ast_node *
+ast_ctr_if_block(struct ast_node * condition,
+                 struct ast_node * body,
+                 struct ast_node * current_block,
+                 struct ast_src_loc loc)
+{
+    struct ast_node * node = NULL;
+    if (!(node = malloc(sizeof(struct ast_node)))) {
+        fprintf(stderr, "Failed allocating node.\n");
+        ast_print_src(loc);
+        goto error;
+    }
+
+    node[0] = (struct ast_node) {
+        .type = AST_IF,
+        .current_block = current_block,
+        .loc = loc,
+        .if_block = {
+            .condition = condition,
+            .body = body,
+        }
+    };
+    return node;
+
+ error:
+    if (node) free(node);
+    return NULL;
+}
+
+struct ast_node *
+ast_ctr_elif_block(struct ast_node * condition,
+                 struct ast_node * body,
+                 struct ast_node * current_block,
+                 struct ast_src_loc loc)
+{
+    struct ast_node * node = NULL;
+    if (!(node = malloc(sizeof(struct ast_node)))) {
+        fprintf(stderr, "Failed allocating node.\n");
+        ast_print_src(loc);
+        goto error;
+    }
+
+    node[0] = (struct ast_node) {
+        .type = AST_ELIF,
+        .current_block = current_block,
+        .loc = loc,
+        .elif_block = {
+            .condition = condition,
+            .body = body,
+        }
+    };
+    return node;
+
+ error:
+    if (node) free(node);
+    return NULL;
+}
+
+struct ast_node *
+ast_ctr_else_block(struct ast_node * body,
+                   struct ast_node * current_block,
+                   struct ast_src_loc loc)
+{
+    struct ast_node * node = NULL;
+    if (!(node = malloc(sizeof(struct ast_node)))) {
+        fprintf(stderr, "Failed allocating node.\n");
+        ast_print_src(loc);
+        goto error;
+    }
+
+    node[0] = (struct ast_node) {
+        .type = AST_ELIF,
+        .current_block = current_block,
+        .loc = loc,
+        .else_block = {
+            .body = body,
+        }
+    };
+    return node;
+
+ error:
+    if (node) free(node);
+    return NULL;
+}
+
+struct ast_node *
+ast_ctr_cond_stmt(struct ast_node * if_block,
+                  struct darr * elif_ladder,
+                  struct ast_node * else_block,
+                  struct ast_node * current_block,
+                  struct ast_src_loc loc)
+{
+    struct ast_node * node = NULL;
+    if (!(node = malloc(sizeof(struct ast_node)))) {
+        fprintf(stderr, "Failed allocating node.\n");
+        ast_print_src(loc);
+        goto error;
+    }
+
+    node[0] = (struct ast_node) {
+        .type = AST_ELIF,
+        .current_block = current_block,
+        .loc = loc,
+        .cond_stmt = {
+            .if_block = if_block,
+            .elif_ladder = elif_ladder,
+            .else_block = else_block,
+        },
+    };
+    return node;
+
+ error:
+    if (node) free(node);
+    return NULL;
+}
 
 
 struct ast_node *
@@ -478,6 +593,34 @@ ast_print_texttree_r(struct ast_node *root,
         ast_print_texttree_r(root->while_loop.condition,  strm, prefix, plen + clen, 0);
         ast_print_texttree_r(root->while_loop.body, strm, prefix, plen + clen, 1);
         break;
+    case AST_IF:
+        fprintf(strm, "%s\n", astk_kind_to_str(AST_IF));
+        ast_print_texttree_r(root->if_block.condition,  strm, prefix, plen + clen, 0);
+        ast_print_texttree_r(root->if_block.body, strm, prefix, plen + clen, 1);
+        break;
+    case AST_ELIF:
+        fprintf(strm, "%s\n", astk_kind_to_str(AST_IF));
+        ast_print_texttree_r(root->if_block.condition,  strm, prefix, plen + clen, 0);
+        ast_print_texttree_r(root->if_block.body, strm, prefix, plen + clen, 1);
+        break;
+    case AST_ELSE:
+        fprintf(strm, "%s\n", astk_kind_to_str(AST_IF));
+        ast_print_texttree_r(root->else_block.body, strm, prefix, plen + clen, 1);
+        break;
+    case AST_COND:
+        fprintf(strm, "%s\n", astk_kind_to_str(AST_COND));
+        int n = darr_size(root->cond_stmt.elif_ladder);
+        bool is_last = (n == 0) && (root->cond_stmt.else_block == NULL);
+        ast_print_texttree_r(root->cond_stmt.if_block, strm, prefix, plen + clen, is_last);
+        for (int i = 0; i < n; i++) {
+            is_last = (i == n - 1) && (root->cond_stmt.else_block == NULL);
+            struct ast_node * child_elif = darr_get(root->cond_stmt.elif_ladder, i);
+            ast_print_texttree_r(child_elif, strm, prefix, plen + clen, is_last);
+        }
+        if (root->cond_stmt.else_block) {
+            ast_print_texttree_r(root->cond_stmt.else_block, strm, prefix, plen + clen, 1);
+        }
+        break;
     default:
         fprintf(strm, "%s\n", astk_kind_to_str(root->type));
         break;
@@ -699,6 +842,29 @@ ast_finalize_r(struct ast_node * node,
         ast_finalize_r(node->while_loop.condition,  containing_block);
         ast_finalize_r(node->while_loop.body, containing_block);
         break;
+    case AST_IF:
+        ast_finalize_r(node->if_block.condition, containing_block);
+        ast_finalize_r(node->if_block.body, containing_block);
+        break;
+    case AST_ELIF:
+        ast_finalize_r(node->elif_block.condition, containing_block);
+        ast_finalize_r(node->elif_block.body, containing_block);
+        break;
+    case AST_ELSE:
+        ast_finalize_r(node->else_block.body, containing_block);
+        break;
+    case AST_COND: {
+        ast_finalize_r(node->cond_stmt.if_block, containing_block);
+        int n = darr_size(node->cond_stmt.elif_ladder);
+        for (int i = 0; i < n; i++) {
+            struct ast_node * child_elif = darr_get(node->cond_stmt.elif_ladder, i);
+            ast_finalize_r(child_elif, containing_block);
+        }
+        if (node->cond_stmt.else_block) {
+            ast_finalize_r(node->cond_stmt.else_block, containing_block);
+        }
+        break;
+    }
     case AST_SCALAR:
     case AST_PUNCTUATOR:
     case AST_IDENT:

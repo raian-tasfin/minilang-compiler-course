@@ -94,6 +94,10 @@ ast_loc_span(YYLTYPE a, YYLTYPE b)
 
 %token WHILE
 
+%token IF
+%token ELIF
+%token ELSE
+
 %token TYPE_SPEC_INTEGER
 %token TYPE_SPEC_BOOLEAN
 %token ASSIGN
@@ -132,12 +136,17 @@ ast_loc_span(YYLTYPE a, YYLTYPE b)
 %type <struct ast_node *> assign
 %type <struct ast_node *> while_stmt
 
+%type <struct ast_node *> cond_stmt
+%type <struct ast_node *> if_block
+%type <struct ast_node *> elif_block
+%type <struct ast_node *> else_block
+%type <struct darr     *> elif_ladder
+
 
 /***********
  * Grammar *
  ***********/
 %%
-
 program:
             %empty           { $$ = ast_ctr_block(NULL); *ast_root = $$; }
 | program NEWLINE            { $$ = $1; }
@@ -151,13 +160,19 @@ stmt:
 | decl
 | assign
 | while_stmt
+| cond_stmt
+;
+
+opt_newlines:
+  %empty
+| opt_newlines NEWLINE
 ;
 
 block:
-  LBRACE RBRACE                       { $$ = ast_ctr_block(NULL); }
-| LBRACE NEWLINE RBRACE               { $$ = ast_ctr_block(NULL); }
-| LBRACE block_body RBRACE            { $$ = $2; }
-| LBRACE NEWLINE block_body RBRACE    { $$ = $3; }
+  LBRACE RBRACE opt_newlines                       { $$ = ast_ctr_block(NULL); }
+| LBRACE NEWLINE RBRACE opt_newlines               { $$ = ast_ctr_block(NULL); }
+| LBRACE block_body RBRACE opt_newlines            { $$ = $2; }
+| LBRACE NEWLINE block_body RBRACE opt_newlines    { $$ = $3; }
 ;
 
 block_body:
@@ -167,6 +182,25 @@ block_body:
 ;
 
 while_stmt: WHILE LPRN expr RPRN block {$$ = ast_ctr_while_loop($3, $5, NULL, ast_loc_span(@1, @5)); }
+;
+
+cond_stmt: if_block elif_ladder else_block opt_newlines {$$ = ast_ctr_cond_stmt($1, $2, $3, NULL, ast_loc_span(@1, @3)); }
+;
+
+if_block: IF LPRN expr RPRN block {$$ = ast_ctr_if_block($3, $5, NULL, ast_loc_span(@1, @5)); }
+;
+
+elif_ladder:
+  %empty                   {$$ = darr_init(sizeof(struct ast_node)); }
+| elif_ladder elif_block   { darr_push_back($1, $2); $$ = $1; }
+;
+
+elif_block: ELIF LPRN expr RPRN block {$$ = ast_ctr_elif_block($3, $5, NULL, ast_loc_span(@1, @5)); }
+;
+
+else_block:
+  %empty {$$ = NULL; }
+| ELSE block {$$ = ast_ctr_else_block($2, NULL, ast_loc_span(@1, @2)); }
 ;
 
 decl:

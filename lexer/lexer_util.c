@@ -200,6 +200,10 @@ lxr_process_proc(int token_type,
     case PRNT: lxr_print_token(PRNT, yylval, ctx); return PRNT;
     case WHILE: lxr_print_token(WHILE, yylval, ctx); return WHILE;
 
+    case IF: lxr_print_token(IF, yylval, ctx); return IF;
+    case ELIF: lxr_print_token(ELIF, yylval, ctx); return ELIF;
+    case ELSE: lxr_print_token(ELSE, yylval, ctx); return ELSE;
+
     case LPRN:
         if (ctx) ctx->open_parens++;
         lxr_print_token(LPRN, yylval, ctx);
