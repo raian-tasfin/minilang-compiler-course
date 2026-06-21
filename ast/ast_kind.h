@@ -16,7 +16,6 @@ enum ast_kind {
     AST_WHILE_LOOP,
     AST_COND,
     AST_IF,
-    AST_ELIF,
     AST_ELSE,
 };
 

@@ -102,18 +102,12 @@ struct ast_if_block {
     struct ast_node * body;
 };
 
-struct ast_elif_block {
-    struct ast_node * condition;
-    struct ast_node * body;
-};
-
 struct ast_else_block {
     struct ast_node * body;
 };
 
 struct ast_cond_stmt {
-    struct ast_node * if_block;
-    struct darr * elif_ladder;  // list of ast_node. Nodes are ast_elif type
+    struct darr * if_ladder;  // list of ast_nodes of type if_block.
     struct ast_node * else_block;
 };
 
@@ -135,7 +129,6 @@ struct ast_node {
         // condition
         struct ast_cond_stmt cond_stmt;
         struct ast_if_block if_block;
-        struct ast_elif_block elif_block;
         struct ast_else_block  else_block ;
     };
 };
@@ -192,20 +185,13 @@ ast_ctr_if_block(struct ast_node * condition,
                  struct ast_src_loc loc);
 
 struct ast_node *
-ast_ctr_elif_block(struct ast_node * condition,
-                   struct ast_node * body,
-                   struct ast_node * current_block,
-                   struct ast_src_loc loc);
-
-struct ast_node *
 ast_ctr_else_block(struct ast_node * body,
                    struct ast_node * current_block,
                    struct ast_src_loc loc);
 
 
 struct ast_node *
-ast_ctr_cond_stmt(struct ast_node * if_block,
-                  struct darr * elif_ladder,
+ast_ctr_cond_stmt(struct darr * if_ladder,
                   struct ast_node * else_block,
                   struct ast_node * current_block,
                   struct ast_src_loc loc);

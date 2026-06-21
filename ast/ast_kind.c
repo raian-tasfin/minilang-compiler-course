@@ -52,7 +52,6 @@ astk_kind_to_str(enum ast_kind kind)
     case AST_WHILE_LOOP:  return "AST_WHILE_LOOP";
     case AST_COND:        return "AST_COND";
     case AST_IF:          return "AST_IF";
-    case AST_ELIF:        return "AST_ELIF";
     case AST_ELSE:        return "AST_ELSE";
     default: return "UNKNOWN";
     }
