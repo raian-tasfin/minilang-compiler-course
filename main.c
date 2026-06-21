@@ -96,10 +96,10 @@ int main(int argc, char * const * argv)
     }
 
 
-   /* /\******************************* */
-   /*  * Intermediate Representation * */
-   /*  *******************************\/ */
-   /*  struct ir_prog ir_program = ir_prog_generate(ast_root, scope); */
+   /*******************************
+    * Intermediate Representation *
+    *******************************/
+    struct ir_prog ir_program = ir_prog_generate(ast_root, scope);
 
    /* /\**************** */
    /*  * IR Reporting * */

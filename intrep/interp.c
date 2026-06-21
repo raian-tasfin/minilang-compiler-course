@@ -353,6 +353,132 @@ ir_prog_generate_rec(struct ast_node * node,
         darr_push_back(prog->stmts, &cond_cjmp);
         return NULL;
     }
+    case AST_COND: {
+        /* Structure
+         * *********
+         * if   (C1) B1
+         * elif (C2) B2
+         * elif (C3) B3
+         * elif (C4) B4
+         * else      B5
+         *
+         * Transform to
+         * ************
+         *
+         * compute C1
+         * compute C2
+         * compute C3
+         * compute C4
+         *
+         * if  C1 goto L1
+         * if  C2 goto L2
+         * if  C3 goto L3
+         * if  C4 goto L4
+         *
+         * L1:
+         *   B1
+         *   goto L6
+         * L2:
+         *   B2
+         *   goto L6
+         * L3:
+         *   B1
+         *   goto L6
+         * L4:
+         *   B4
+         *   goto L6
+         * L5:
+         *   B5
+         *   goto L6
+         * L6:
+         */
+
+        int cnt_conds = darr_size(node->cond_stmt.if_ladder);
+
+        /* label calculation */
+        /* labels are calculated as
+         *     label_base + label_indx + 1
+         */
+        int exit_label_indx =
+            cnt_conds                               // conditional blocks
+            + (node->cond_stmt.else_block ? 1 : 0); // else generates a block if present
+        int label_base = *label;
+        /* We need to ensure the global label is out of this range,
+         * i.e. we need to reserve this  range of labels. This is
+         * because nested blocks may need more labels.
+         */
+        *label = label_base + exit_label_indx + 1 + 1;
+
+        /* compute symbols */
+        struct darr * cond_symbs = darr_init(sizeof(struct symbol));
+        darr_reserve(cond_symbs, cnt_conds);
+        for (int i = 0; i < cnt_conds; i++) {
+            struct ast_node * if_child = darr_get(node->cond_stmt.if_ladder, i);
+            darr_push_back(cond_symbs, ir_prog_generate_rec(if_child->if_block.condition, prog, scope, lineno, label));
+        }
+
+        /* generate lines of the form
+         *   if C_i goto L_i
+         */
+        for (int i = 0; i < cnt_conds; i++) {
+            struct symbol * cond_sym = darr_get(cond_symbs, i);
+            struct ir_stmt cjmp = {
+                .type = IR_CJMP,
+                .lineno = ++(*lineno),
+                .cjmp = {
+                    .cond_symb = cond_sym,
+                    .loc_label = label_base + i + 1,
+                },
+            };
+            darr_push_back(prog->stmts, &cjmp);
+        }
+
+        /* generate blocks */
+        /* if and elif blocks first */
+        for (int i = 0; i < cnt_conds; i++) {
+            // label statement
+            struct ir_stmt stmt_label = {
+                .type = IR_LABEL,
+                .lineno = ++(*lineno),
+                .label.id = label_base + i + 1,
+            };
+            darr_push_back(prog->stmts, &stmt_label);
+
+            // block
+            struct ast_node * child_if = darr_get(node->cond_stmt.if_ladder, i);
+            ir_prog_generate_rec(child_if->if_block.body, prog, scope, lineno, label);
+
+            // goto exit label
+            struct ir_stmt goto_exit = {
+                .type = IR_JMP,
+                .lineno = ++(*lineno),
+                .label.id = label_base + exit_label_indx + 1,
+            };
+            darr_push_back(prog->stmts, &goto_exit);
+        }
+
+        /* now else block if it exists */
+        if (node->cond_stmt.else_block) {
+            // label statement
+            struct ir_stmt stmt_label = {
+                .type = IR_LABEL,
+                .lineno = ++(*lineno),
+                .label.id = label_base + cnt_conds + 1,
+            };
+            darr_push_back(prog->stmts, &stmt_label);
+            ir_prog_generate_rec(node->cond_stmt.else_block->else_block.body, prog, scope, lineno, label);
+        }
+
+        /* finally exit label */
+        struct ir_stmt stmt_label = {
+            .type = IR_LABEL,
+            .lineno = ++(*lineno),
+            .label.id = label_base + exit_label_indx + 1,
+        };
+        darr_push_back(prog->stmts, &stmt_label);
+
+        return NULL;
+    }
     };
 }
 
