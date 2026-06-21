@@ -1,0 +1,19 @@
+#+TITLE: README
+
+* Build
+Considering current directory to be project directory
+
+#+begin_src shell
+  make
+  cd ./vm
+  make
+  cd ../
+#+end_src
+
+* Compile and Run an Example
+#+begin_src shell
+  # compile
+  ./minilang -c tests/assignment-block.mlo tests/assignment-block.ml
+  # run
+  ./vm/vm run tests/assignment-block.mlo
+#+end_src
