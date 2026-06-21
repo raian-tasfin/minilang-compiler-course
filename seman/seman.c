@@ -246,7 +246,7 @@ seman_proc(struct ast_node * root,
                        id);
         if (cond.err) return seman_report_err();
         if (cond.type != SEMAN_BOOLEAN)
-            return seman_print_type_mismatch_error(root->unop.child,
+            return seman_print_type_mismatch_error(root->while_loop.condition,
                                                    "Expected boolean",
                                                    sb);
         /* Check block */
@@ -257,6 +257,39 @@ seman_proc(struct ast_node * root,
                        id);
         if (body.err) return seman_report_err();
 
+        return seman_report_null();
+    }
+    case AST_IF: {
+        /* Ensure boolean condition */
+        struct seman_report cond = seman_proc(root->if_block.condition, sb, current_scope, id);
+        if (cond.err) return seman_report_err();
+        if (cond.type != SEMAN_BOOLEAN) return seman_print_type_mismatch_error(root->if_block.condition, "Expected boolean", sb);
+
+        /* Check block */
+        struct seman_report body = seman_proc(root->if_block.body, sb, current_scope, id);
+        if (body.err) return seman_report_err();
+
+        return seman_report_null();
+    }
+    case AST_ELSE: {
+        /* Check block */
+        struct seman_report body = seman_proc(root->else_block.body, sb, current_scope, id);
+        if (body.err) return seman_report_err();
+
+        return seman_report_null();
+    }
+    case AST_COND: {
+        int n = darr_size(root->cond_stmt.if_ladder);
+        for (int i = 0; i < n; i++) {
+            struct ast_node * if_block = darr_get(root->cond_stmt.if_ladder, i);
+            struct seman_report if_rep = seman_proc(if_block, sb, current_scope, id);
+            if (if_rep.err) return seman_report_err();
+        }
+
+        if (root->cond_stmt.else_block) {
+            struct seman_report else_rep = seman_proc(root->cond_stmt.else_block, sb, current_scope, id);
+            if (else_rep.err) return seman_report_err();
+        }
         return seman_report_null();
     }
     case AST_IDENT: {
