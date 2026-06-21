@@ -1,4 +1,4 @@
-int a = 100
+int a = 80
 if (a < 20) {
    print(20)
 } elif(a < 60) {
@@ -11,3 +11,4 @@ else {
     print(100)
 }
 print(a)
+ 

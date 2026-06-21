@@ -101,40 +101,40 @@ int main(int argc, char * const * argv)
     *******************************/
     struct ir_prog ir_program = ir_prog_generate(ast_root, scope);
 
-   /* /\**************** */
-   /*  * IR Reporting * */
-   /*  ****************\/ */
-   /* ir_ctx = ir_ctx_init(&cliopts); */
-   /* if (ir_ctx.err) { */
-   /*     exit_status = EXIT_FAILURE; */
-   /*     goto destruct; */
-   /* } */
-   /* ir_print(&ir_ctx, &ir_program); */
+   /****************
+    * IR Reporting *
+    ****************/
+   ir_ctx = ir_ctx_init(&cliopts);
+   if (ir_ctx.err) {
+       exit_status = EXIT_FAILURE;
+       goto destruct;
+   }
+   ir_print(&ir_ctx, &ir_program);
 
-   /*  /\******************* */
-   /*   * Code Generation * */
-   /*   *******************\/ */
-   /*  if (cliopts.cg.generate) { */
-   /*      /\* Ensure options *\/ */
-   /*      if (!cliopts.cg.outpath) { */
-   /*          exit_status = EXIT_FAILURE; */
-   /*          goto destruct; */
-   /*      } */
-   /*      /\* Ensure context *\/ */
-   /*      if (!(cg_ctx = cg_ctx_init(&ir_program))) { */
-   /*          exit_status = EXIT_FAILURE; */
-   /*          goto destruct; */
-   /*      } */
-   /*      program = cg_generate_code(cg_ctx); */
-   /*      /\* Ensure output file *\/ */
-   /*      if (!(cg_out = fopen(cliopts.cg.outpath, "wb"))) { */
-   /*          exit_status = EXIT_FAILURE; */
-   /*          goto destruct; */
-   /*      } */
-   /*      fwrite(cg_buffer(program), */
-   /*             darr_elem_size(program), */
-   /*             darr_size(program), cg_out); */
-   /*  } */
+    /*******************
+     * Code Generation *
+     *******************/
+    if (cliopts.cg.generate) {
+        /* Ensure options */
+        if (!cliopts.cg.outpath) {
+            exit_status = EXIT_FAILURE;
+            goto destruct;
+        }
+        /* Ensure context */
+        if (!(cg_ctx = cg_ctx_init(&ir_program))) {
+            exit_status = EXIT_FAILURE;
+            goto destruct;
+        }
+        program = cg_generate_code(cg_ctx);
+        /* Ensure output file */
+        if (!(cg_out = fopen(cliopts.cg.outpath, "wb"))) {
+            exit_status = EXIT_FAILURE;
+            goto destruct;
+        }
+        fwrite(cg_buffer(program),
+               darr_elem_size(program),
+               darr_size(program), cg_out);
+    }
 
     /************
      * Destruct *

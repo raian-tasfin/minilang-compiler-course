@@ -374,6 +374,7 @@ ir_prog_generate_rec(struct ast_node * node,
          * if  C2 goto L2
          * if  C3 goto L3
          * if  C4 goto L4
+         *        goto L5
          *
          * L1:
          *   B1
@@ -431,6 +432,15 @@ ir_prog_generate_rec(struct ast_node * node,
                 },
             };
             darr_push_back(prog->stmts, &cjmp);
+        }
+        /* if else-block exists, add an unconditional jump to it */
+        if (node->cond_stmt.else_block) {
+            struct ir_stmt jmp = {
+                .type = IR_JMP,
+                .lineno = ++(*lineno),
+                .jmp.loc_label = label_base + cnt_conds + 1,
+            };
+            darr_push_back(prog->stmts, &jmp);
         }
 
         /* generate blocks */
