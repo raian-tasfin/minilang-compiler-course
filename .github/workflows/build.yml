@@ -52,11 +52,20 @@ jobs:
       #
       # Build
       #
-      - name: Build (Linux)
+      - name: Build Compiler (Linux)
         if: runner.os == 'Linux'
         run: make
 
-      - name: Build (Windows)
+      - name: Build VM (Linux)
+        if: runner.os == 'Linux'
+        run: make -C vm
+
+      - name: Build Compiler (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: make
+
+      - name: Build VM (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: make -C vm
